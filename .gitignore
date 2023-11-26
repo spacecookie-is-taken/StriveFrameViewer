@@ -3,3 +3,5 @@ GGSTCharaSlots/
 DBFZCharaSlots/
 GBVSRollback/
 pak_reloader/
+build/
+.vscode/
