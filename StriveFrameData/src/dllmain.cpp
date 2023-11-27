@@ -79,18 +79,35 @@ struct UpdateAdvantage
 		bool
 	Size matches 0x18 from ghidra, allignment matches as well
 */
-struct FakeKey {
+struct InputParamData {
 	Unreal::FName KeyName;
 	void* KeyDetailsObject;
 	void* KeyDetailsRefController;
 	bool was_pressed;
 
-	FakeKey(const Unreal::FName& src)
+	InputParamData(const Unreal::FName& src)
 		: KeyName(src)
 		, KeyDetailsObject(nullptr)
 		, KeyDetailsRefController(nullptr)
 		, was_pressed(false)
 	{}
+};
+
+struct FLinearColor {
+	float R, G, B, A;
+};
+
+struct DrawRectParams {
+	FLinearColor RectColor;
+	float ScreenX;
+	float ScreenY;
+	float ScreenW;
+	float ScreenH;
+};
+
+struct GetSizeParams {
+	int32_t SizeX = 0;
+	int32_t SizeY = 0;
 };
 
 static const wchar_t* RawButtonNames[] = {
@@ -126,14 +143,23 @@ static const wchar_t* RawButtonNames[] = {
 	L"Gamepad_RightStick_Left"
 };
 constexpr int ButtonCount = sizeof(RawButtonNames) / sizeof(wchar_t*);
-FakeKey* ButtonData[ButtonCount];
+InputParamData* ButtonData[ButtonCount];
 std::vector<bool> ButtonStates;
 
+GetSizeParams SizeData;
+
 std::vector<Unreal::UObject*> mod_actors{};
-std::vector<Unreal::UObject*> input_actors{};
-std::vector<Unreal::UObject*> hud_actors{};
-Unreal::UFunction* bp_function;
+Unreal::UObject* input_actor;
+Unreal::UObject* hud_actor;
+Unreal::UObject* player_actor;
+
+int debug_draw_offset = 0;
+
+Unreal::UFunction* bp_function = nullptr;
 Unreal::UFunction* press_function = nullptr;
+Unreal::UFunction* drawrect_func = nullptr;
+Unreal::UFunction* getplayer_func = nullptr;
+Unreal::UFunction* getsize_func = nullptr;
 
 bool MatchStartFlag = false;
 
@@ -254,30 +280,58 @@ void UpdateBattle_New(AREDGameState_Battle* GameState, float DeltaTime) {
             bp_function = mod_actors[0]->GetFunctionByNameInChain(STR("UpdateAdvantage"));
             
 			/* input state setup */
-			static auto battle_input_name = Unreal::FName(STR("REDPlayerController_Battle"), Unreal::FNAME_Add);
-			static auto battle_input_get_name = Unreal::FName(STR("WasInputKeyJustPressed"), Unreal::FNAME_Add);
+			static auto input_class_name = Unreal::FName(STR("REDPlayerController_Battle"), Unreal::FNAME_Add);
+			static auto input_func_name = Unreal::FName(STR("WasInputKeyJustPressed"), Unreal::FNAME_Add);
 
-			UObjectGlobals::FindAllOf(battle_input_name, input_actors);
+			input_actor = UObjectGlobals::FindFirstOf(input_class_name);
 
-			if (input_actors.size() > 0) {
-				press_function = input_actors.front()->GetFunctionByNameInChain(battle_input_get_name);
+			if (input_actor) {
+				RC::Output::send<LogLevel::Warning>(STR("Found Input Object\n"));
+				press_function = input_actor->GetFunctionByNameInChain(input_func_name);
 			}
 			if (press_function) {
-				RC::Output::send<LogLevel::Warning>(STR("Found Press Function\n"));
+				RC::Output::send<LogLevel::Warning>(STR("Found Input Function\n"));
 				ButtonStates.resize(ButtonCount, false);
 				for (int idx = 0; idx < ButtonCount; ++idx) {
-					ButtonData[idx] = new FakeKey(Unreal::FName(RawButtonNames[idx], Unreal::FNAME_Add));
+					ButtonData[idx] = new InputParamData(Unreal::FName(RawButtonNames[idx], Unreal::FNAME_Add));
 				}
 			}
 
 			/* HUD setup */
-			static auto hud_name = Unreal::FName(STR("WasInputKeyJustPressed"), Unreal::FNAME_Add);
+			static auto hud_class_name = Unreal::FName(STR("REDHUD_Battle"), Unreal::FNAME_Add);
+			static auto hud_drawrect_func_name = Unreal::FName(STR("DrawRect"), Unreal::FNAME_Add);
+			static auto hud_getplayer_func_name = Unreal::FName(STR("GetOwningPlayerController"), Unreal::FNAME_Add);
+			static auto player_getsize_func_name = Unreal::FName(STR("GetViewportSize"), Unreal::FNAME_Add);
 
-			UObjectGlobals::FindAllOf(hud_name, hud_actors);
-			RC::Output::send<LogLevel::Warning>(STR("Found {} HUD actors\n"), hud_actors.size());
-			for (auto* actor : hud_actors) {
-				RC::Output::send<LogLevel::Warning>(STR(" - {}\n"), actor->GetName());
+			hud_actor = UObjectGlobals::FindFirstOf(hud_class_name);
+			if (hud_actor) {
+				RC::Output::send<LogLevel::Warning>(STR("Found HUD Object\n")); 
+				drawrect_func = hud_actor->GetFunctionByNameInChain(hud_drawrect_func_name);
+				getplayer_func = hud_actor->GetFunctionByNameInChain(hud_getplayer_func_name);
 			}
+			if (drawrect_func) {
+				RC::Output::send<LogLevel::Warning>(STR("Found HUD drawRect Function\n"));
+				/*for (auto* prop : drawrect_func->ForEachProperty()) {
+					RC::Output::send<LogLevel::Warning>(STR(" - {}: {}\n"), prop->GetName(),prop->GetClass().GetName());
+				}*/
+			}
+			if (getplayer_func) {
+				RC::Output::send<LogLevel::Warning>(STR("Found HUD getPlayer Function\n"));
+				hud_actor->ProcessEvent(getplayer_func, &player_actor);
+			}
+			if (player_actor) {
+				RC::Output::send<LogLevel::Warning>(STR("Found Player Object\n"));
+				getsize_func = player_actor->GetFunctionByNameInChain(player_getsize_func_name);
+			}
+			if (getsize_func) {
+				RC::Output::send<LogLevel::Warning>(STR("Found Player getSize Function\n"));
+				player_actor->ProcessEvent(getsize_func, &SizeData);
+
+				RC::Output::send<LogLevel::Warning>(STR("VIEW SIZE - x:{}, y:{}\n"), SizeData.SizeX, SizeData.SizeY);
+			}
+
+
+
         }
     	
     	if (mod_actors.empty()) return;
@@ -285,8 +339,8 @@ void UpdateBattle_New(AREDGameState_Battle* GameState, float DeltaTime) {
 		/* Get input state */
 		if (press_function) {
 			for (int idx = 0; idx < ButtonCount; ++idx) {
-				FakeKey& queried_key = *ButtonData[idx];
-				input_actors.front()->ProcessEvent(press_function, &queried_key);
+				InputParamData& queried_key = *ButtonData[idx];
+				input_actor->ProcessEvent(press_function, &queried_key);
 				ButtonStates[idx] = queried_key.was_pressed;
 				if (queried_key.was_pressed) {
 					RC::Output::send<LogLevel::Warning>(STR("{} Key Was Pressed\n"), RawButtonNames[idx]);
@@ -295,9 +349,9 @@ void UpdateBattle_New(AREDGameState_Battle* GameState, float DeltaTime) {
 		}
 
 		/* Send arcsys state and input state to remote server */
-		SendFrameData(1, player_one);
-		SendFrameData(2, player_two);
-		SendInputData(ButtonStates);
+		//SendFrameData(1, player_one);
+		//SendFrameData(2, player_two);
+		//SendInputData(ButtonStates);
 
 	    UpdateAdvantage params = UpdateAdvantage();
 	    auto p1_string = std::to_wstring(p1_advantage);
@@ -325,6 +379,56 @@ void UpdateBattle_New(AREDGameState_Battle* GameState, float DeltaTime) {
 	    params2.Text = FString(p2_string.c_str());
 	    mod_actors[mod_actors.size() - 2]->ProcessEvent(bp_function, &params2);
 	}
+}
+
+const void* vtable_hook(const void** vtable, const int index, const void* hook)
+{
+	DWORD old_protect;
+	VirtualProtect(&vtable[index], sizeof(void*), PAGE_READWRITE, &old_protect);
+	const auto* orig = vtable[index];
+	vtable[index] = hook;
+	VirtualProtect(&vtable[index], sizeof(void*), old_protect, &old_protect);
+	return orig;
+}
+
+using AHUD_PostRender_t = void(*)(void*);
+AHUD_PostRender_t orig_AHUD_PostRender;
+
+
+
+void hook_AHUD_PostRender(void* hud) {
+	orig_AHUD_PostRender(hud);
+	//void* offset = (void*)(((unsigned char*)hud) + 632);
+	//void* value = *((void**)offset);
+
+	//RC::Output::send<LogLevel::Warning>(STR("Canvas Prop: {} {} {}\n"), hud, offset, value);
+	if (drawrect_func) {
+		//RC::Output::send<LogLevel::Warning>(STR("Drawing {} {}\n"), hud, (void*)hud_actor);
+		//auto* canvas_prop = hud_actor->GetPropertyByNameInChain(STR("Canvas"));
+		//if (canvas_prop) {
+			//canvas_prop->GetClass().GetName()
+			
+		//}
+
+		debug_draw_offset += 1;
+		if (debug_draw_offset > 60) {
+			FLinearColor color_red{ 1.f,0.f,0.f,1.f };
+			FLinearColor color_grn{ 0.f,1.f,0.f,1.f };
+			FLinearColor color_blu{ 0.f,0.f,1.f,1.f };
+			DrawRectParams func_params_red{ color_red, 0.f, 0, 200.f, 200.f };
+			DrawRectParams func_params_grn{ color_grn, 0, 200, 200.f, 200.f };
+			DrawRectParams func_params_blu{ color_blu, 200.f, 0.f, 200.f, 200.f };
+
+			hud_actor->ProcessEvent(drawrect_func, &func_params_red);
+			hud_actor->ProcessEvent(drawrect_func, &func_params_grn);
+			hud_actor->ProcessEvent(drawrect_func, &func_params_blu);
+
+			if (debug_draw_offset >= 120) {
+				debug_draw_offset = 0;
+			}
+		}
+	}
+	
 }
 
 class StriveFrameData : public CppUserModBase
@@ -374,6 +478,9 @@ public:
 		
 	    const uintptr_t GetGameMode_Addr = sigscan::get().scan("\x0F\xB6\x81\xF0\x02\x00\x00\xC3", "xxxxxxxx");
     	GetGameMode = reinterpret_cast<GetGameMode_Func>(GetGameMode_Addr);
+
+		const auto** AHUD_vtable = (const void**)get_rip_relative(sigscan::get().scan("\x48\x8D\x05\x00\x00\x00\x00\xC6\x83\x18\x03", "xxx????xxxx") + 3);
+		orig_AHUD_PostRender = (AHUD_PostRender_t)vtable_hook(AHUD_vtable, 214, hook_AHUD_PostRender);
     	
     	ASWInitFunctions();
     	bbscript::BBSInitializeFunctions();
