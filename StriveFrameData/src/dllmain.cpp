@@ -57,6 +57,9 @@ int last_hit = 0;
 int last_ec = 0;
 int last_flag = 0;
 
+#define SCAN_START 0x6000
+constexpr int SCAN_SIZE = 4*16*4; // to 0x6400
+uint32_t SCAN_RANGE[SCAN_SIZE];
 
 bool ShouldUpdateBattle = true;
 bool ShouldAdvanceBattle = false;
@@ -341,6 +344,19 @@ void UpdateBattle_New(AREDGameState_Battle* GameState, float DeltaTime) {
 
         if (player_one->action_time == 1) {
             RC::Output::send<LogLevel::Warning>(STR("ACT Reset\n"));
+        }
+#endif
+ 
+#if 0 // utility to force scan for new offsets of asw_player after an update
+        const uint32_t* scan_root = (uint32_t*)((char*)player_one + SCAN_START);
+        for (int i = 0; i < SCAN_SIZE; ++i) {
+            if (i == 62 || i == 63) continue;
+            auto& last_val = SCAN_RANGE[i];
+            auto& next_val = *(scan_root + i);
+            if (last_val != next_val) {
+                RC::Output::send<LogLevel::Warning>(STR("CHANGE: {}, {} -> {}\n"), i, last_val, next_val);
+                last_val = next_val;
+            }
         }
 #endif
 
