@@ -2,6 +2,7 @@
 #include "sigscan.h"
 #include "arcsys.h"
 #include "netcalls.h"
+#include "drawing.h"
 
 #include <UE4SSProgram.hpp>
 #include <UnrealDef.hpp>
@@ -51,6 +52,12 @@ enum GAME_MODE : int32_t
     GAME_MODE_INVALID = 0x1B,
 };
 
+int last_hurt = 0;
+int last_hit = 0;
+int last_ec = 0;
+int last_flag = 0;
+
+
 bool ShouldUpdateBattle = true;
 bool ShouldAdvanceBattle = false;
 
@@ -93,23 +100,6 @@ struct InputParamData {
 	{}
 };
 
-struct FLinearColor {
-	float R, G, B, A;
-};
-
-struct DrawRectParams {
-	FLinearColor RectColor;
-	float ScreenX;
-	float ScreenY;
-	float ScreenW;
-	float ScreenH;
-};
-
-struct GetSizeParams {
-	int32_t SizeX = 0;
-	int32_t SizeY = 0;
-};
-
 static const wchar_t* RawButtonNames[] = {
 	L"Gamepad_LeftX",
 	L"Gamepad_LeftY",
@@ -148,16 +138,13 @@ std::vector<bool> ButtonStates;
 
 GetSizeParams SizeData;
 
-std::vector<Unreal::UObject*> mod_actors{};
-Unreal::UObject* input_actor;
-Unreal::UObject* hud_actor;
-Unreal::UObject* player_actor;
+Unreal::UObject* input_actor = nullptr;
+Unreal::UObject* hud_actor = nullptr;
+Unreal::UObject* player_actor = nullptr;
 
-int debug_draw_offset = 0;
-
-Unreal::UFunction* bp_function = nullptr;
 Unreal::UFunction* press_function = nullptr;
 Unreal::UFunction* drawrect_func = nullptr;
+Unreal::UFunction* drawtext_func = nullptr;
 Unreal::UFunction* getplayer_func = nullptr;
 Unreal::UFunction* getsize_func = nullptr;
 
@@ -169,15 +156,109 @@ void MatchStart_New(AREDGameState_Battle* GameState)
     MatchStartFlag = true;
     ShouldAdvanceBattle = false;
     ShouldUpdateBattle = true;
+
+    // reset unreal pointers
+    input_actor = nullptr;
+    hud_actor = nullptr;
+    player_actor = nullptr;
+
+    press_function = nullptr;
+    drawrect_func = nullptr;
+    drawtext_func = nullptr;
+    getplayer_func = nullptr;
+    getsize_func = nullptr;
+
     MatchStart_Orig(GameState);
 }
 
-int p1_advantage = 0;
-int p2_advantage = 0;
-int p1_hitstop_prev = 0;
-int p2_hitstop_prev = 0;
-int p1_act = 0;
-int p2_act = 0;
+const void* vtable_hook(const void** vtable, const int index, const void* hook)
+{
+	DWORD old_protect;
+	VirtualProtect(&vtable[index], sizeof(void*), PAGE_READWRITE, &old_protect);
+	const auto* orig = vtable[index];
+	vtable[index] = hook;
+	VirtualProtect(&vtable[index], sizeof(void*), old_protect, &old_protect);
+	return orig;
+}
+
+using AHUD_PostRender_t = void(*)(void*);
+AHUD_PostRender_t orig_AHUD_PostRender;
+void hook_AHUD_PostRender(void* hud) {
+	orig_AHUD_PostRender(hud);
+    if (drawrect_func && hud_actor) {
+        if(hud_actor == hud){
+            drawFrames(hud_actor);
+        }
+        else {
+            RC::Output::send<LogLevel::Warning>(STR("Expiring HUD actor\n"));
+            hud_actor = nullptr;
+        }
+    }
+}
+
+bool renderingHooked = false;
+void initRenderHooks() {
+
+    /* Get current HUD actor */
+    RC::Output::send<LogLevel::Warning>(STR("Finding HUD actor\n"));
+    static auto hud_class_name = Unreal::FName(STR("REDHUD_Battle"), Unreal::FNAME_Add);
+    hud_actor = UObjectGlobals::FindFirstOf(hud_class_name);
+
+    /* Input State bp hooks */
+    static auto input_class_name = Unreal::FName(STR("REDPlayerController_Battle"), Unreal::FNAME_Add);
+    static auto input_func_name = Unreal::FName(STR("WasInputKeyJustPressed"), Unreal::FNAME_Add);
+
+    input_actor = UObjectGlobals::FindFirstOf(input_class_name);
+    if (input_actor) {
+        RC::Output::send<LogLevel::Warning>(STR("Found Input Object\n"));
+        press_function = input_actor->GetFunctionByNameInChain(input_func_name);
+    }
+    if (press_function) {
+        RC::Output::send<LogLevel::Warning>(STR("Found Input Function\n"));
+        ButtonStates.resize(ButtonCount, false);
+        for (int idx = 0; idx < ButtonCount; ++idx) {
+            ButtonData[idx] = new InputParamData(Unreal::FName(RawButtonNames[idx], Unreal::FNAME_Add));
+        }
+    }
+
+    /* HUD Rendering bp hooks */
+    static auto hud_drawrect_func_name = Unreal::FName(STR("DrawRect"), Unreal::FNAME_Add);
+    static auto hud_drawtext_func_name = Unreal::FName(STR("DrawText"), Unreal::FNAME_Add);
+    static auto hud_getplayer_func_name = Unreal::FName(STR("GetOwningPlayerController"), Unreal::FNAME_Add);
+    static auto player_getsize_func_name = Unreal::FName(STR("GetViewportSize"), Unreal::FNAME_Add);
+
+    if (hud_actor) {
+        RC::Output::send<LogLevel::Warning>(STR("Found HUD Object\n")); 
+        drawrect_func = hud_actor->GetFunctionByNameInChain(hud_drawrect_func_name);
+        drawtext_func = hud_actor->GetFunctionByNameInChain(hud_drawtext_func_name);
+        getplayer_func = hud_actor->GetFunctionByNameInChain(hud_getplayer_func_name);
+    }
+    if (drawrect_func) { RC::Output::send<LogLevel::Warning>(STR("Found HUD drawRect Function\n")); }
+    if (drawtext_func) { RC::Output::send<LogLevel::Warning>(STR("Found HUD drawText Function\n")); }
+    if (getplayer_func) {
+        RC::Output::send<LogLevel::Warning>(STR("Found HUD getPlayer Function\n"));
+        hud_actor->ProcessEvent(getplayer_func, &player_actor);
+    }
+    if (player_actor) {
+        RC::Output::send<LogLevel::Warning>(STR("Found Player Object\n"));
+        getsize_func = player_actor->GetFunctionByNameInChain(player_getsize_func_name);
+    }
+    if (getsize_func) {
+        RC::Output::send<LogLevel::Warning>(STR("Found Player getSize Function\n"));
+        player_actor->ProcessEvent(getsize_func, &SizeData);
+
+        RC::Output::send<LogLevel::Warning>(STR("VIEW SIZE - x:{}, y:{}\n"), SizeData.SizeX, SizeData.SizeY);
+    }
+
+    initFrames(SizeData, drawrect_func, drawtext_func);
+
+    if(renderingHooked) return;
+    renderingHooked = true;
+
+    /* HUD Rendering vtable hook*/
+    const auto** AHUD_vtable = (const void**)get_rip_relative(sigscan::get().scan("\x48\x8D\x05\x00\x00\x00\x00\xC6\x83\x18\x03", "xxx????xxxx") + 3);
+	orig_AHUD_PostRender = (AHUD_PostRender_t)vtable_hook(AHUD_vtable, 214, hook_AHUD_PostRender);
+}
 
 UE4SSProgram* Program;
 
@@ -222,8 +303,7 @@ void UpdateBattle_New(AREDGameState_Battle* GameState, float DeltaTime) {
 		f3_pressed = false;
 	}
 
-    if (ShouldUpdateBattle || ShouldAdvanceBattle)
-	{
+    if (ShouldUpdateBattle || ShouldAdvanceBattle) {
 		UpdateBattle_Orig(GameState, DeltaTime);
 		ShouldAdvanceBattle = false;
 
@@ -233,111 +313,13 @@ void UpdateBattle_New(AREDGameState_Battle* GameState, float DeltaTime) {
 		asw_player* player_one = engine->players[0].entity;
 		asw_player* player_two = engine->players[1].entity;
 
-	    if ((player_one->action_time == 1 && player_one->hitstop != p1_hitstop_prev - 1)
-	        || (player_two->action_time == 1 && player_two->hitstop != p2_hitstop_prev - 1))
-	    {
-	        if (!player_one->can_act() || !player_two->can_act())
-	        {
-	            if (!player_two->is_knockdown() || player_two->is_down_bound() || player_two->is_quick_down_1())
-	            {
-	                p1_advantage = player_one->calc_advantage() + p1_act;
-	            }
-	            if (!player_one->is_knockdown() || player_one->is_down_bound() || player_one->is_quick_down_1())
-	            {
-	                p2_advantage = player_two->calc_advantage() + p2_act;
-	            }
-	        }
-	        else
-	        {
-	            p1_advantage = p1_act - p2_act;
-	            p2_advantage = p2_act - p1_act;
-	        }
-	    }
-
-	    if (player_one->is_stunned() && !player_two->is_stunned())
-	        p1_advantage = -p2_advantage;
-	    else if (player_two->is_stunned() && !player_one->is_stunned())
-	        p2_advantage = -p1_advantage;
-	    
-	    p1_hitstop_prev = player_one->hitstop;
-	    p2_hitstop_prev = player_two->hitstop;
-	    if (player_one->can_act() && !player_two->can_act())
-	        p1_act++;
-	    else p1_act = 0;
-	    if (player_two->can_act() && !player_one->can_act())
-	        p2_act++;
-	    else p2_act = 0;
-
-        if (MatchStartFlag)
-        {
+        if (MatchStartFlag) {
 			MatchStartFlag = false;
-
-			/* battle state setup */
-            static auto battle_trainingdamage_name = Unreal::FName(STR("Battle_TrainingDamage_C"), Unreal::FNAME_Add);
-
-            UObjectGlobals::FindAllOf(battle_trainingdamage_name, mod_actors);
-        	
-            bp_function = mod_actors[0]->GetFunctionByNameInChain(STR("UpdateAdvantage"));
-            
-			/* input state setup */
-			static auto input_class_name = Unreal::FName(STR("REDPlayerController_Battle"), Unreal::FNAME_Add);
-			static auto input_func_name = Unreal::FName(STR("WasInputKeyJustPressed"), Unreal::FNAME_Add);
-
-			input_actor = UObjectGlobals::FindFirstOf(input_class_name);
-
-			if (input_actor) {
-				RC::Output::send<LogLevel::Warning>(STR("Found Input Object\n"));
-				press_function = input_actor->GetFunctionByNameInChain(input_func_name);
-			}
-			if (press_function) {
-				RC::Output::send<LogLevel::Warning>(STR("Found Input Function\n"));
-				ButtonStates.resize(ButtonCount, false);
-				for (int idx = 0; idx < ButtonCount; ++idx) {
-					ButtonData[idx] = new InputParamData(Unreal::FName(RawButtonNames[idx], Unreal::FNAME_Add));
-				}
-			}
-
-			/* HUD setup */
-			static auto hud_class_name = Unreal::FName(STR("REDHUD_Battle"), Unreal::FNAME_Add);
-			static auto hud_drawrect_func_name = Unreal::FName(STR("DrawRect"), Unreal::FNAME_Add);
-			static auto hud_getplayer_func_name = Unreal::FName(STR("GetOwningPlayerController"), Unreal::FNAME_Add);
-			static auto player_getsize_func_name = Unreal::FName(STR("GetViewportSize"), Unreal::FNAME_Add);
-
-			hud_actor = UObjectGlobals::FindFirstOf(hud_class_name);
-			if (hud_actor) {
-				RC::Output::send<LogLevel::Warning>(STR("Found HUD Object\n")); 
-				drawrect_func = hud_actor->GetFunctionByNameInChain(hud_drawrect_func_name);
-				getplayer_func = hud_actor->GetFunctionByNameInChain(hud_getplayer_func_name);
-			}
-			if (drawrect_func) {
-				RC::Output::send<LogLevel::Warning>(STR("Found HUD drawRect Function\n"));
-				/*for (auto* prop : drawrect_func->ForEachProperty()) {
-					RC::Output::send<LogLevel::Warning>(STR(" - {}: {}\n"), prop->GetName(),prop->GetClass().GetName());
-				}*/
-			}
-			if (getplayer_func) {
-				RC::Output::send<LogLevel::Warning>(STR("Found HUD getPlayer Function\n"));
-				hud_actor->ProcessEvent(getplayer_func, &player_actor);
-			}
-			if (player_actor) {
-				RC::Output::send<LogLevel::Warning>(STR("Found Player Object\n"));
-				getsize_func = player_actor->GetFunctionByNameInChain(player_getsize_func_name);
-			}
-			if (getsize_func) {
-				RC::Output::send<LogLevel::Warning>(STR("Found Player getSize Function\n"));
-				player_actor->ProcessEvent(getsize_func, &SizeData);
-
-				RC::Output::send<LogLevel::Warning>(STR("VIEW SIZE - x:{}, y:{}\n"), SizeData.SizeX, SizeData.SizeY);
-			}
-
-
-
+            initRenderHooks();
         }
-    	
-    	if (mod_actors.empty()) return;
 
 		/* Get input state */
-		if (press_function) {
+		if (input_actor && press_function) {
 			for (int idx = 0; idx < ButtonCount; ++idx) {
 				InputParamData& queried_key = *ButtonData[idx];
 				input_actor->ProcessEvent(press_function, &queried_key);
@@ -348,87 +330,59 @@ void UpdateBattle_New(AREDGameState_Battle* GameState, float DeltaTime) {
 			}
 		}
 
+#if 0
+        auto next_hurt = player_one->hurtbox_count;
+        auto next_hit = player_one->hitbox_count;
+        if (last_hurt != next_hurt || last_hit != next_hit) {
+            RC::Output::send<LogLevel::Warning>(STR("Hurt: {}, Hit: {}\n"), next_hurt, next_hit);
+        }
+        last_hurt = next_hurt;
+        last_hit = next_hit;
+
+        if (player_one->action_time == 1) {
+            RC::Output::send<LogLevel::Warning>(STR("ACT Reset\n"));
+        }
+#endif
+
+        auto next_flag = player_one->enable_flag;
+        if (last_flag != next_flag) {
+            RC::Output::send<LogLevel::Warning>(STR("Flag: {}\n"), next_flag);
+        }
+        last_flag = next_flag;
+
+        int next_ec = engine->entity_count;
+        bool player_one_proj = false;
+        bool player_two_proj = false;
+        for(int idx=0;idx<next_ec;++idx){
+            const auto* focus = engine->entities[idx];
+            if(focus == player_one || focus == player_two) continue;
+
+            if(focus->parent_obj == player_one) {
+                if( focus->is_active() ){
+                    player_one_proj = true;
+                }
+            }
+            else if(focus->parent_obj == player_two) {
+                if( focus->is_active() ){
+                    player_two_proj = true;
+                }
+            }
+        }
+        last_ec = next_ec;
+
 		/* Send arcsys state and input state to remote server */
-		//SendFrameData(1, player_one);
-		//SendFrameData(2, player_two);
-		//SendInputData(ButtonStates);
+#if 0
+		SendFrameData(1, player_one);
+		SendFrameData(2, player_two);
+		SendInputData(ButtonStates);
+#endif
 
-	    UpdateAdvantage params = UpdateAdvantage();
-	    auto p1_string = std::to_wstring(p1_advantage);
-	    if (p1_advantage > 0)
-	    {
-	        p1_string.insert(0, STR("+"));
-	    }
-	    if (p1_advantage > 1500 || p1_advantage < -1500)
-	    {
-	        p1_string = STR("???");
-	    }
-	    params.Text = FString(p1_string.c_str());
-	    mod_actors[mod_actors.size() - 1]->ProcessEvent(bp_function, &params);
-
-	    auto p2_string = std::to_wstring(p2_advantage);
-	    if (p2_advantage > 0)
-	    {
-	        p2_string.insert(0, STR("+"));
-	    }
-	    if (p2_advantage > 1500 || p2_advantage < -1500)
-	    {
-	        p2_string = STR("???");
-	    }
-	    UpdateAdvantage params2 = UpdateAdvantage();
-	    params2.Text = FString(p2_string.c_str());
-	    mod_actors[mod_actors.size() - 2]->ProcessEvent(bp_function, &params2);
-	}
-}
-
-const void* vtable_hook(const void** vtable, const int index, const void* hook)
-{
-	DWORD old_protect;
-	VirtualProtect(&vtable[index], sizeof(void*), PAGE_READWRITE, &old_protect);
-	const auto* orig = vtable[index];
-	vtable[index] = hook;
-	VirtualProtect(&vtable[index], sizeof(void*), old_protect, &old_protect);
-	return orig;
-}
-
-using AHUD_PostRender_t = void(*)(void*);
-AHUD_PostRender_t orig_AHUD_PostRender;
-
-
-
-void hook_AHUD_PostRender(void* hud) {
-	orig_AHUD_PostRender(hud);
-	//void* offset = (void*)(((unsigned char*)hud) + 632);
-	//void* value = *((void**)offset);
-
-	//RC::Output::send<LogLevel::Warning>(STR("Canvas Prop: {} {} {}\n"), hud, offset, value);
-	if (drawrect_func) {
-		//RC::Output::send<LogLevel::Warning>(STR("Drawing {} {}\n"), hud, (void*)hud_actor);
-		//auto* canvas_prop = hud_actor->GetPropertyByNameInChain(STR("Canvas"));
-		//if (canvas_prop) {
-			//canvas_prop->GetClass().GetName()
-			
-		//}
-
-		debug_draw_offset += 1;
-		if (debug_draw_offset > 60) {
-			FLinearColor color_red{ 1.f,0.f,0.f,1.f };
-			FLinearColor color_grn{ 0.f,1.f,0.f,1.f };
-			FLinearColor color_blu{ 0.f,0.f,1.f,1.f };
-			DrawRectParams func_params_red{ color_red, 0.f, 0, 200.f, 200.f };
-			DrawRectParams func_params_grn{ color_grn, 0, 200, 200.f, 200.f };
-			DrawRectParams func_params_blu{ color_blu, 200.f, 0.f, 200.f, 200.f };
-
-			hud_actor->ProcessEvent(drawrect_func, &func_params_red);
-			hud_actor->ProcessEvent(drawrect_func, &func_params_grn);
-			hud_actor->ProcessEvent(drawrect_func, &func_params_blu);
-
-			if (debug_draw_offset >= 120) {
-				debug_draw_offset = 0;
-			}
+        /* Update Frame Data */
+		addFrame(*player_one, *player_two, player_one_proj, player_two_proj);
+		if (ButtonStates.at(7)) {
+			resetFrames();
 		}
 	}
-	
 }
 
 class StriveFrameData : public CppUserModBase
@@ -478,9 +432,6 @@ public:
 		
 	    const uintptr_t GetGameMode_Addr = sigscan::get().scan("\x0F\xB6\x81\xF0\x02\x00\x00\xC3", "xxxxxxxx");
     	GetGameMode = reinterpret_cast<GetGameMode_Func>(GetGameMode_Addr);
-
-		const auto** AHUD_vtable = (const void**)get_rip_relative(sigscan::get().scan("\x48\x8D\x05\x00\x00\x00\x00\xC6\x83\x18\x03", "xxx????xxxx") + 3);
-		orig_AHUD_PostRender = (AHUD_PostRender_t)vtable_hook(AHUD_vtable, 214, hook_AHUD_PostRender);
     	
     	ASWInitFunctions();
     	bbscript::BBSInitializeFunctions();
