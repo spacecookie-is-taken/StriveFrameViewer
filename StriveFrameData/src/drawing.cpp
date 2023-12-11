@@ -326,6 +326,8 @@ void addFrame(asw_player& player_one, asw_player& player_two, bool player_one_pr
 
 void resetFrames() {
 	state_data.active = false;
+  state_data.current_state_one = PlayerState();
+  state_data.current_state_two = PlayerState();
 }
 
 void drawFrames(RC::Unreal::UObject* hud) {

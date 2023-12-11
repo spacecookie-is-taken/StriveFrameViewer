@@ -152,6 +152,7 @@ Unreal::UFunction* getplayer_func = nullptr;
 Unreal::UFunction* getsize_func = nullptr;
 
 bool MatchStartFlag = false;
+int resetBleedProtect = 0;
 
 void(*MatchStart_Orig)(AREDGameState_Battle*);
 void MatchStart_New(AREDGameState_Battle* GameState)
@@ -389,11 +390,18 @@ void UpdateBattle_New(AREDGameState_Battle* GameState, float DeltaTime) {
 		SendInputData(ButtonStates);
 #endif
 
-        /* Update Frame Data */
-		addFrame(*player_one, *player_two, player_one_proj, player_two_proj);
+    /* Update Frame Data */
 		if (ButtonStates.at(7)) {
+      resetBleedProtect = 7;
+    }
+    // sometimes the reset doesn't fully take effect for a few frames, this prevents combo data from "bleeding" over
+    if(resetBleedProtect > 0){
+      resetBleedProtect--;
 			resetFrames();
 		}
+    else {
+      addFrame(*player_one, *player_two, player_one_proj, player_two_proj);
+    }
 	}
 }
 

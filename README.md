@@ -31,6 +31,7 @@ Additionally, there are some space saving features. If a segment of frames is lo
 - Fix some projectiles and moves not displaying active hitbox frames.
 - Fix some cases where idle total time is not displayed.
 - Fix total time getting cut off if greater than 100 frames.
+- Fix text not scaling with screen resolution
 - Add controls to toggle or adjust features like segment truncation
 - Add customization of reset key, or figure out how to pull game controls
 - Add data about last move for each player
