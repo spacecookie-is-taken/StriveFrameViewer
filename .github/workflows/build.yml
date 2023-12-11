@@ -52,7 +52,7 @@ jobs:
       uses: actions/upload-artifact@v3.1.1
       with:
         name: StriveFrameData
-        path: ${{env.GITHUB_WORKSPACE}}/result
+        path: ${{env.GITHUB_WORKSPACE}}\result\
         if-no-files-found: error
 
 
