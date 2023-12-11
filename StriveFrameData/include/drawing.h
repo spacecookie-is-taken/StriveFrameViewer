@@ -37,6 +37,7 @@ struct PlayerState {
 };
 
 void initFrames(const GetSizeParams& sizedata, RC::Unreal::UFunction* drawrect, RC::Unreal::UFunction* drawtext);
+void updateSize(const GetSizeParams& sizedata);
 void addFrame(asw_player& player_one, asw_player& player_two, bool player_one_proj, bool player_two_proj);
 void resetFrames();
 

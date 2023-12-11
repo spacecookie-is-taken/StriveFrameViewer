@@ -149,8 +149,9 @@ GetSizeParams SizeData;
 Unreal::UObject* input_actor = nullptr;
 Unreal::UObject* hud_actor = nullptr;
 Unreal::UObject* player_actor = nullptr;
-Unreal::UFunction* press_function = nullptr;
+Unreal::UFunction* press_func = nullptr;
 Unreal::UFunction* drawrect_func = nullptr;
+Unreal::UFunction* getsize_func = nullptr;
 
 // State Data
 UREDGameCommon* GameCommon;
@@ -175,7 +176,6 @@ const void* vtable_hook(const void** vtable, const int index, const void* hook) 
   return orig;
 }
 void initRenderHooks() {
-
   /* Get current HUD actor */
   RC::Output::send<LogLevel::Warning>(STR("Finding HUD actor\n"));
   static auto hud_class_name = Unreal::FName(STR("REDHUD_Battle"), Unreal::FNAME_Add);
@@ -188,9 +188,9 @@ void initRenderHooks() {
   input_actor = UObjectGlobals::FindFirstOf(input_class_name);
   if (input_actor) {
     RC::Output::send<LogLevel::Warning>(STR("Found Input Object\n"));
-    press_function = input_actor->GetFunctionByNameInChain(input_func_name);
+    press_func = input_actor->GetFunctionByNameInChain(input_func_name);
   }
-  if (press_function) {
+  if (press_func) {
     RC::Output::send<LogLevel::Warning>(STR("Found Input Function\n"));
     ButtonStates.resize(ButtonCount, false);
     for (int idx = 0; idx < ButtonCount; ++idx) {
@@ -205,7 +205,6 @@ void initRenderHooks() {
   static auto player_getsize_func_name = Unreal::FName(STR("GetViewportSize"), Unreal::FNAME_Add);
 
   Unreal::UFunction* getplayer_func = nullptr;
-  Unreal::UFunction* getsize_func = nullptr;
   Unreal::UFunction* drawtext_func = nullptr;
 
   if (hud_actor) {
@@ -258,8 +257,9 @@ void hook_MatchStart(AREDGameState_Battle* GameState) {
   hud_actor = nullptr;
   player_actor = nullptr;
 
-  press_function = nullptr;
+  press_func = nullptr;
   drawrect_func = nullptr;
+  getsize_func = nullptr;
 
   orig_MatchStart(GameState);
 }
@@ -317,10 +317,10 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     }
 
     /* Get input state */
-    if (input_actor && press_function) {
+    if (input_actor && press_func) {
       for (int idx = 0; idx < ButtonCount; ++idx) {
         InputParamData& queried_key = *ButtonData[idx];
-        input_actor->ProcessEvent(press_function, &queried_key);
+        input_actor->ProcessEvent(press_func, &queried_key);
         ButtonStates[idx] = queried_key.was_pressed;
 #if 0
 				if (queried_key.was_pressed) {
@@ -379,6 +379,12 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     } else {
       addFrame(*player_one, *player_two, player_one_proj, player_two_proj);
     }
+
+    /* Update Screen Size */
+    if (getsize_func) {
+      player_actor->ProcessEvent(getsize_func, &SizeData);
+      updateSize(SizeData);
+    }
   }
 }
 
@@ -427,7 +433,11 @@ class StriveFrameData : public CppUserModBase {
 };
 
 extern "C" {
-STRIVEFRAMEDATA_API CppUserModBase* start_mod() { return new StriveFrameData(); }
+STRIVEFRAMEDATA_API CppUserModBase* start_mod() {
+  return new StriveFrameData();
+}
 
-STRIVEFRAMEDATA_API void uninstall_mod(CppUserModBase* mod) { delete mod; }
+STRIVEFRAMEDATA_API void uninstall_mod(CppUserModBase* mod) {
+  delete mod;
+}
 }

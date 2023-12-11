@@ -98,6 +98,10 @@ struct DrawTool {
     hud_actor = nullptr;
     drawrect_func = drawrect;
     drawtext_func = drawtext;
+    updateSize(SizeData);
+  }
+
+  void updateSize(const GetSizeParams& SizeData) {
     center_x = SizeData.SizeX * CENTER_X_RATIO;
     center_y = SizeData.SizeY * CENTER_Y_RATIO;
     units = SizeData.SizeX * PROJECTED_RATIO;
@@ -116,13 +120,13 @@ struct DrawTool {
   void drawText(int x, int y, const std::wstring& text) const {
     RC::Unreal::FString Text(text.c_str());
 
-    x -= (text.size() > 1) ? 5 : 1;
+    x -= (text.size() - 1) * 5 - 2;
 
     double prj_x = center_x + (units * x);
     double prj_y = center_y + (units * y);
 
     // TODO: scale text off screen resolution
-    DrawTextParams params{Text, color_white, prj_x, prj_y, nullptr, 1.8f, false};
+    DrawTextParams params{Text, color_white, prj_x, prj_y, nullptr, units * 1.2, false};
 
     hud_actor->ProcessEvent(drawtext_func, &params);
   }
@@ -299,6 +303,10 @@ DrawTool tool;
 
 void initFrames(const GetSizeParams& sizedata, RC::Unreal::UFunction* drawrect, RC::Unreal::UFunction* drawtext) {
   tool = DrawTool(sizedata, drawrect, drawtext);
+}
+
+void updateSize(const GetSizeParams& sizedata) {
+  tool.updateSize(sizedata);
 }
 
 void addFrame(asw_player& player_one, asw_player& player_two, bool player_one_proj, bool player_two_proj) {
