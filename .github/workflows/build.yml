@@ -1,0 +1,55 @@
+name: MSVC Build
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - '**/build.yml'
+
+
+permissions:
+  contents: write
+  id-token: write
+  issues: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout SFV
+      uses: actions/checkout@v3
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: amd64
+
+    - name: Build
+      run: |
+        cd ${{github.workspace}}
+        mkdir build
+        cd build
+        cmake -G "Visual Studio 17 2022" ..
+        msbuild .\StriveFrameData\StriveFrameData.sln
+        msbuild .\RE-UE4SS\UE4SS\proxy_generator\proxy\proxy.sln
+
+    - name: Package
+      run: |
+        cd ${{github.workspace}}
+        mkdir result\Mods\StriveFrameViewer
+        cp .\build\StriveFrameData\Game__Debug__Win64\StriveFrameData.dll .\result\Mods\StriveFrameData\main.dll
+        cp .\build\Output\Game__Debug__Win64\proxy\bin\dwmapi.dll .\result\dwmapi.dll
+        cp .\build\Output\Game__Debug__Win64\UE4SS\bin\UE4SS.dll .\result\UE4SS.dll
+        cp .\prereqs\mods.txt .\result\Mods\mods.txt
+        cp .\prereqs\UE4SS-settings.ini .\result\UE4SS-settings.ini
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3.1.1
+      with:
+        name: StriveFrameData
+        path: ${{github.workspace}}/result
+        if-no-files-found: error
+
+
+        
+    
