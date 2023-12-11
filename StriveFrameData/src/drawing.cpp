@@ -1,4 +1,11 @@
 #include "drawing.h"
+#include <UE4SSProgram.hpp>
+#include <DynamicOutput/DynamicOutput.hpp>
+
+/* Debug Stuff */
+#if 1
+#define DEBUG_PRINT(...) RC::Output::send<LogLevel::Warning>(__VA_ARGS__)
+#endif
 
 /* Combo Triger Settings */
 constexpr int COMBO_ENDED_TIME = 20;  // time idle before combo is considered over
@@ -169,6 +176,10 @@ PlayerStateType PlayerState::getType() const {
   else return PST_Busy;
 }
 
+void DebugPrintState(const PlayerState& f) {
+  DEBUG_PRINT(STR("can:{}, bs:{}, hs:{}, act:{}, t:{}, r:{}, hit:{}, st:{}\n"), f.canact, f.block_stunned, f.hit_stunned, f.active, f.time, f.recovery, f.hitstop, f.state_time);
+}
+
 struct FrameState {
   struct FrameInfo {
     FLinearColor color_one;
@@ -190,8 +201,8 @@ struct FrameState {
 
   void resetFrames() {
     current_segment_idx = 0;
-    current_state_one.state_time = 1;
-    current_state_two.state_time = 1;
+    current_state_one.state_time = 0;
+    current_state_two.state_time = 0;
     previous_state_one.state_time = 0;
     previous_state_two.state_time = 0;
     for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
@@ -201,10 +212,11 @@ struct FrameState {
 
   void addFrame(asw_player& player_one, asw_player& player_two, bool player_one_proj, bool player_two_proj) {
     // update states
-    previous_state_one = current_state_one;
+    if (!current_state_one.hitstop && !current_state_two.hitstop) {
+      previous_state_one = current_state_one;
+      previous_state_two = current_state_two;
+    }
     current_state_one = PlayerState(player_one, previous_state_one, player_one_proj);
-
-    previous_state_two = current_state_two;
     current_state_two = PlayerState(player_two, previous_state_two, player_two_proj);
 
     auto type_one = current_state_one.getType();
@@ -214,21 +226,28 @@ struct FrameState {
 
     // end combo if we've been idle for a long time
     if (type_one == PST_Idle && type_two == PST_Idle) {
-      if (!active) return;
+      if (!active) {
+        return;
+      }
       if (time_one >= COMBO_ENDED_TIME && time_two >= COMBO_ENDED_TIME) {
+        DEBUG_PRINT(STR("Combo ended\n"));
         active = false;
         return;
       }
     }
     // reset if this is a new combo
     else if (!active) {
+      DEBUG_PRINT(STR("Combo reset\n"));
       resetFrames();
     }
 
+    DEBUG_PRINT(STR("Frame {}\n"), current_segment_idx);
+    DebugPrintState(current_state_one);
+    DebugPrintState(current_state_two);
+
     // ignore hitstop time
     if (current_state_one.hitstop || current_state_two.hitstop) {
-      --current_state_one.state_time;
-      --current_state_two.state_time;
+      DEBUG_PRINT(STR("Skipping Hitstop\n"));
       return;
     }
 
@@ -236,12 +255,14 @@ struct FrameState {
 
     // only trigger truncation logic if mid-combo
     if (active) {
+      DEBUG_PRINT(STR("Is Active\n"));
       auto& prev_segment = segments[(current_segment_idx + FRAME_SEGMENTS - 1) % FRAME_SEGMENTS];
 
       // we are truncating, update truncated
       if (time_one >= COMBO_TRUNC_TIME && time_two >= COMBO_TRUNC_TIME) {
         prev_segment.trunc_one = time_one + 1;
         prev_segment.trunc_two = time_two + 1;
+        DEBUG_PRINT(STR("Truncating 1:{}, 2:{}\n"), prev_segment.trunc_one, prev_segment.trunc_two);
         return;
       }
 
@@ -251,29 +272,36 @@ struct FrameState {
 
       // previous section has ended
       if (time_one == 0) {
+        DEBUG_PRINT(STR("New Section for One\n"));
         active_segment.color_one = state_colors[type_one];
         // ... and was long enough that we want to print length
         if (previous_state_one.state_time >= COMBO_NUM_TIME) {
+          DEBUG_PRINT(STR("Last section requires truncating\n"));
           prev_segment.trunc_one = previous_state_one.state_time + 1;
         }
       } else {
+        DEBUG_PRINT(STR("Same Section for One\n"));
         // we are drawing this section, fade its color slightly
         // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
         active_segment.color_one = prev_segment.color_one * COLOR_DECAY;
       }
 
       if (time_two == 0) {
+        DEBUG_PRINT(STR("New Section for Two\n"));
         active_segment.color_two = state_colors[type_two];
         // ... and was long enough that we want to print length
         if (previous_state_two.state_time >= COMBO_NUM_TIME) {
+          DEBUG_PRINT(STR("Last section requires truncating\n"));
           prev_segment.trunc_two = previous_state_two.state_time + 1;
         }
       } else {
+        DEBUG_PRINT(STR("Same Section for Two\n"));
         // we are drawing this section, fade its color slightly
         // active_segment.color_two = state_colors[type_two] * COLOR_DECAY;
         active_segment.color_two = prev_segment.color_two * COLOR_DECAY;
       }
     } else {
+      DEBUG_PRINT(STR("Was not Active\n"));
       active_segment.color_one = state_colors[type_one];
       active_segment.color_two = state_colors[type_two];
     }
@@ -285,6 +313,7 @@ struct FrameState {
 
     // advance to next segment
     if (++current_segment_idx >= FRAME_SEGMENTS) {
+      DEBUG_PRINT(STR("Cycling segment index\n"));
       current_segment_idx = 0;
     }
 
@@ -329,7 +358,7 @@ void drawFrames(RC::Unreal::UObject* hud) {
   for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
     int left = BAR_LEFT + (SEG_TOTAL * idx) + SEG_SPACING;
     const auto& info = state_data.segments[idx];
-    
+
     if (info.color_one.A != 0.f) {
       tool.drawRect(left, SEGS_ONE_TOP, SEG_WIDTH, SEG_HEIGHT, info.color_one);
       if (info.trunc_one > 0) {
