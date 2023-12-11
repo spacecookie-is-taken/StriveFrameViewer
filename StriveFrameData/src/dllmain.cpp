@@ -327,9 +327,11 @@ void UpdateBattle_New(AREDGameState_Battle* GameState, float DeltaTime) {
 				InputParamData& queried_key = *ButtonData[idx];
 				input_actor->ProcessEvent(press_function, &queried_key);
 				ButtonStates[idx] = queried_key.was_pressed;
+#if 0
 				if (queried_key.was_pressed) {
 					RC::Output::send<LogLevel::Warning>(STR("{} Key Was Pressed\n"), RawButtonNames[idx]);
 				}
+#endif
 			}
 		}
 
@@ -359,12 +361,6 @@ void UpdateBattle_New(AREDGameState_Battle* GameState, float DeltaTime) {
             }
         }
 #endif
-
-        auto next_flag = player_one->enable_flag;
-        if (last_flag != next_flag) {
-            RC::Output::send<LogLevel::Warning>(STR("Flag: {}\n"), next_flag);
-        }
-        last_flag = next_flag;
 
         int next_ec = engine->entity_count;
         bool player_one_proj = false;
