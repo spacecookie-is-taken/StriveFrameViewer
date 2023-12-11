@@ -5,7 +5,7 @@ ConsoleEnablerMod : 1
 SplitScreenMod : 0
 LineTraceMod : 0
 BPModLoaderMod : 0
-StriveFrameData : 1
+StriveFrameViewer : 1
 
 ; Built-in keybinds, do not move up!
 Keybinds : 1
