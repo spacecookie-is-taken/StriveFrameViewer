@@ -322,11 +322,6 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
         InputParamData& queried_key = *ButtonData[idx];
         input_actor->ProcessEvent(press_func, &queried_key);
         ButtonStates[idx] = queried_key.was_pressed;
-#if 0
-				if (queried_key.was_pressed) {
-					RC::Output::send<LogLevel::Warning>(STR("{} Key Was Pressed\n"), RawButtonNames[idx]);
-				}
-#endif
       }
     }
 
@@ -360,13 +355,6 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
         }
       }
     }
-
-    /* Send arcsys state and input state to remote server */
-#if 0
-		SendFrameData(1, player_one);
-		SendFrameData(2, player_two);
-		SendInputData(ButtonStates);
-#endif
 
     /* Update Frame Data */
     if (ButtonStates.at(7)) {

@@ -20,18 +20,18 @@ Two bars along the bottom of the screen display a series of frames. The top bar 
 - <span style="color:red">Red</span>: the player has active hurtboxes
 - <span style="color:orange">Orange</span>: the player is in a recovery animation
 
-If the training mode reset is triggered (currently hard coded to Right Thumbstick button) or both players don't input a move for 20 frames, the combo is considered "ended" and the display will reset on the next input move.
+If the training mode reset is triggered or both players don't input a move for 20 frames, the combo is considered "ended" and the display will reset on the next input move.
 
 Additionally, there are some space saving features. If a segment of frames is longer than 5 frames, the total length will be displayed as text. If an animation is in hitstun or counterhit stun, where animation is freezed, the frames will be dropped to save space. If both players have been in the same state for more than 10 frames, the segments will be "truncated" to save space. 
 
-
+## Controls
+- F2: Pause/Resume the game
+- F3: (if paused) advance the game by one frame
 
 ## TODO:
 - Fix "off by one" errors where the length of sections is incorrect for some moves, I think this comes down to consequences the odd (but rational in context) way that Strive encodes frame data in bbscript.
 - Fix some projectiles and moves not displaying active hitbox frames.
 - Fix some cases where idle total time is not displayed.
-- Fix total time getting cut off if greater than 100 frames.
-- Fix text not scaling with screen resolution
 - Add controls to toggle or adjust features like segment truncation
 - Add customization of reset key, or figure out how to pull game controls
 - Add data about last move for each player
