@@ -44,13 +44,13 @@ constexpr double CENTER_Y_RATIO = 0.8f;
 struct FLinearColor {
 	float R = 0.f, G = 0.f, B = 0.f, A = 0.f;
 
-  FLinearColor operator*(float mod) const {
-    FLinearColor result = *this;
-    result.R *= mod;
-    result.G *= mod;
-    result.B *= mod;
-    return result;
-  }
+	FLinearColor operator*(float mod) const {
+		FLinearColor result = *this;
+		result.R *= mod;
+		result.G *= mod;
+		result.B *= mod;
+		return result;
+	}
 };
 
 struct DrawRectParams {
@@ -114,24 +114,24 @@ struct DrawTool {
 		hud_actor->ProcessEvent(drawrect_func, &rect_params);
 	}
 
-  void drawText(int x, int y, const std::wstring& text) const {
-			RC::Unreal::FString Text(text.c_str());
+	void drawText(int x, int y, const std::wstring& text) const {
+		RC::Unreal::FString Text(text.c_str());
       
 
-      if(text.size() > 1){
-        x -= 5;
-      }
-      else {
-        x -= 1;
-      }
+		if(text.size() > 1){
+			x -= 5;
+		}
+		else {
+			x -= 1;
+		}
 
-      double prj_x = center_x + (units * x);
-		  double prj_y = center_y + (units * y);
+		double prj_x = center_x + (units * x);
+		double prj_y = center_y + (units * y);
 
-			DrawTextParams params{Text, color_white, prj_x, prj_y, nullptr, 1.8f, false};
+		DrawTextParams params{Text, color_white, prj_x, prj_y, nullptr, 1.8f, false};
 
-			hud_actor->ProcessEvent(drawtext_func, &params);
-  }
+		hud_actor->ProcessEvent(drawtext_func, &params);
+	}
 };
 
 PlayerState::PlayerState()
@@ -176,12 +176,12 @@ PlayerStateType PlayerState::getType() const {
 
 
 struct FrameState {
-  struct FrameInfo {
-    FLinearColor color_one;
-    FLinearColor color_two;
-    int trunc_one = 0;
-    int trunc_two = 0;
-  };
+	struct FrameInfo {
+		FLinearColor color_one;
+		FLinearColor color_two;
+		int trunc_one = 0;
+		int trunc_two = 0;
+	};
 	FrameInfo segments[FRAME_SEGMENTS];
 
 	PlayerState previous_state_one;
@@ -222,11 +222,11 @@ struct FrameState {
 
 		// end combo if we've been idle for a long time
 		if (type_one == PST_Idle && type_two == PST_Idle) {
-      if(!active) return;
-      if(time_one >= COMBO_ENDED_TIME && time_two >= COMBO_ENDED_TIME) {
-        active = false;
-        return;
-      }
+			if(!active) return;
+			if(time_one >= COMBO_ENDED_TIME && time_two >= COMBO_ENDED_TIME) {
+				active = false;
+				return;
+			}
 		}
 		// reset if this is a new combo
 		else if (!active) {
@@ -241,66 +241,66 @@ struct FrameState {
 		}
 
     
-    auto& active_segment = segments[current_segment_idx];
+		auto& active_segment = segments[current_segment_idx];
 
-    // only trigger truncation logic if mid-combo
-    if(active) {
-      auto& prev_segment = segments[(current_segment_idx + FRAME_SEGMENTS - 1) % FRAME_SEGMENTS];
+		// only trigger truncation logic if mid-combo
+		if(active) {
+			auto& prev_segment = segments[(current_segment_idx + FRAME_SEGMENTS - 1) % FRAME_SEGMENTS];
 
-      // we are truncating, update truncated
-      if(time_one >= COMBO_TRUNC_TIME && time_two >= COMBO_TRUNC_TIME){
-        prev_segment.trunc_one = time_one + 1;
-        prev_segment.trunc_two = time_two + 1;
-        return; 
-      }
+			// we are truncating, update truncated
+			if(time_one >= COMBO_TRUNC_TIME && time_two >= COMBO_TRUNC_TIME){
+				prev_segment.trunc_one = time_one + 1;
+				prev_segment.trunc_two = time_two + 1;
+				return; 
+			}
 
-      // if we were truncating, we aren't anymore
-      prev_segment.trunc_one = 0;
-      prev_segment.trunc_two = 0;
+			// if we were truncating, we aren't anymore
+			prev_segment.trunc_one = 0;
+			prev_segment.trunc_two = 0;
 
-      // previous section has ended
-      if(time_one == 0){
-        active_segment.color_one = state_colors[type_one];
-        // ... and was long enough that we want to print length
-        if(previous_state_one.state_time >= COMBO_NUM_TIME){
-          prev_segment.trunc_one = previous_state_one.state_time + 1;
-        }
-      }
-      else {
-        // we are drawing this section, fade its color slightly
-        //active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
-        active_segment.color_one = prev_segment.color_one * COLOR_DECAY;
-      }
+			// previous section has ended
+			if(time_one == 0){
+				active_segment.color_one = state_colors[type_one];
+				// ... and was long enough that we want to print length
+				if(previous_state_one.state_time >= COMBO_NUM_TIME){
+					prev_segment.trunc_one = previous_state_one.state_time + 1;
+				}
+			}
+			else {
+				// we are drawing this section, fade its color slightly
+				//active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
+				active_segment.color_one = prev_segment.color_one * COLOR_DECAY;
+			}
 
-      if(time_two == 0){
-        active_segment.color_two = state_colors[type_two];
-        // ... and was long enough that we want to print length
-        if(previous_state_two.state_time >= COMBO_NUM_TIME){
-          prev_segment.trunc_two = previous_state_two.state_time + 1;
-        }
-      }
-      else {
-        // we are drawing this section, fade its color slightly
-        //active_segment.color_two = state_colors[type_two] * COLOR_DECAY;
-        active_segment.color_two = prev_segment.color_two * COLOR_DECAY;
-      }
-    }
-    else {
-      active_segment.color_one = state_colors[type_one];
-      active_segment.color_two = state_colors[type_two];
-    }
+			if(time_two == 0){
+				active_segment.color_two = state_colors[type_two];
+				// ... and was long enough that we want to print length
+				if(previous_state_two.state_time >= COMBO_NUM_TIME){
+					prev_segment.trunc_two = previous_state_two.state_time + 1;
+				}
+			}
+			else {
+				// we are drawing this section, fade its color slightly
+				//active_segment.color_two = state_colors[type_two] * COLOR_DECAY;
+				active_segment.color_two = prev_segment.color_two * COLOR_DECAY;
+			}
+		}
+		else {
+			active_segment.color_one = state_colors[type_one];
+			active_segment.color_two = state_colors[type_two];
+		}
 
-    // fade effect, clear segments near tail
-    auto& fade_segment = segments[(current_segment_idx + FADE_DISTANCE) % FRAME_SEGMENTS];
-    fade_segment.color_one.A = 0.f;
-    fade_segment.color_two.A = 0.f;
+		// fade effect, clear segments near tail
+		auto& fade_segment = segments[(current_segment_idx + FADE_DISTANCE) % FRAME_SEGMENTS];
+		fade_segment.color_one.A = 0.f;
+		fade_segment.color_two.A = 0.f;
 
-    // advance to next segment
+		// advance to next segment
 		if (++current_segment_idx >= FRAME_SEGMENTS) {
 			current_segment_idx = 0;
 		}
 
-    active = true;
+		active = true;
 	}
 };
 
@@ -335,18 +335,18 @@ void drawFrames(RC::Unreal::UObject* hud) {
 
 	for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
 		int left = BAR_LEFT + (SEG_TOTAL * idx) + SEG_SPACING;
-    const auto& info = state_data.segments[idx];
+		const auto& info = state_data.segments[idx];
 		if (info.color_one.A != 0.f) {
 			tool.drawRect(left, SEGS_ONE_TOP, SEG_WIDTH, SEG_HEIGHT, info.color_one);
-      if(info.trunc_one > 0){
-        tool.drawText(left, SEGS_ONE_TOP, std::to_wstring(info.trunc_one));
-      }
+			if(info.trunc_one > 0){
+				tool.drawText(left, SEGS_ONE_TOP, std::to_wstring(info.trunc_one));
+			}
 		}
 		if(info.color_two.A != 0.f) {
 			tool.drawRect(left, SEGS_TWO_TOP, SEG_WIDTH, SEG_HEIGHT, info.color_two);
-      if(info.trunc_two > 0){
-        tool.drawText(left, SEGS_TWO_TOP, std::to_wstring(info.trunc_two));
-      }
+			if(info.trunc_two > 0){
+				tool.drawText(left, SEGS_TWO_TOP, std::to_wstring(info.trunc_two));
+			}
 		}
 	}
 }
