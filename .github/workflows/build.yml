@@ -25,6 +25,9 @@ jobs:
         submodules: recursive
         fetch-depth: 0 # needed to get commits since last tag
         ssh-key: ${{ secrets.UEPSEUDO_SSH_KEY }}
+    
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v1.0.2
 
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
