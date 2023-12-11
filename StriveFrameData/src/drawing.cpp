@@ -2,6 +2,8 @@
 #include <UE4SSProgram.hpp>
 #include <DynamicOutput/DynamicOutput.hpp>
 
+#include <format>
+
 /* Debug Stuff */
 #if 1
 #define DEBUG_PRINT(...) RC::Output::send<LogLevel::Warning>(__VA_ARGS__)
@@ -40,6 +42,9 @@ constexpr int SEGS_TWO_BOTTOM = BAR_TWO_BOTTOM - SEG_SPACING;
 
 constexpr int SEGS_ONE_TOP = BAR_ONE_TOP + SEG_SPACING;
 constexpr int SEGS_ONE_BOTTOM = BAR_ONE_BOTTOM - SEG_SPACING;
+
+constexpr int INFO_ONE_LOC = BAR_ONE_TOP - BAR_HEIGHT;
+constexpr int INFO_TWO_LOC = BAR_TWO_BOTTOM + 2;
 
 /* Projected Display Settings */
 constexpr double PROJECTED_RATIO = 0.0006f;
@@ -163,7 +168,7 @@ PlayerState::PlayerState(asw_player& player, const PlayerState& last, bool proj_
       state_time = 1000;
     }
   } else {
-    state_time = 0;
+    state_time = 1;
   }
 }
 
@@ -194,6 +199,15 @@ struct FrameState {
   PlayerState current_state_one;
   PlayerState current_state_two;
 
+  // last move stats
+  int startup_one = 0;
+  int active_one = 0;
+  int recovery_one = 0;
+  int startup_two = 0;
+  int active_two = 0;
+  int recovery_two = 0;
+  int advantage = 0;
+
   bool active = false;
   int current_segment_idx = 0;
 
@@ -201,10 +215,16 @@ struct FrameState {
 
   void resetFrames() {
     current_segment_idx = 0;
-    current_state_one.state_time = 0;
-    current_state_two.state_time = 0;
-    previous_state_one.state_time = 0;
-    previous_state_two.state_time = 0;
+    current_state_one.state_time = 1;
+    current_state_two.state_time = 1;
+    previous_state_one.state_time = 1;
+    previous_state_two.state_time = 1;
+    startup_one = 0;
+    active_one = 0;
+    recovery_one = 0;
+    startup_two = 0;
+    active_two = 0;
+    recovery_two = 0;
     for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
       segments[idx] = FrameInfo();
     }
@@ -229,7 +249,7 @@ struct FrameState {
       if (!active) {
         return;
       }
-      if (time_one >= COMBO_ENDED_TIME && time_two >= COMBO_ENDED_TIME) {
+      if (time_one > COMBO_ENDED_TIME && time_two > COMBO_ENDED_TIME) {
         DEBUG_PRINT(STR("Combo ended\n"));
         active = false;
         return;
@@ -251,6 +271,46 @@ struct FrameState {
       return;
     }
 
+    // update move info
+    if (!current_state_one.canact) {
+      if (!current_state_one.hit_stunned && !current_state_one.block_stunned) {
+        if (current_state_one.active) {
+          active_one = current_state_one.state_time;
+        } else if (current_state_one.recovery) {
+          recovery_one = current_state_one.state_time;
+        } else {
+          startup_one = current_state_one.state_time;
+        }
+      }
+    }
+
+    if (!current_state_two.canact) {
+      if (!current_state_two.hit_stunned && !current_state_two.block_stunned) {
+        if (current_state_two.active) {
+          active_two = current_state_two.state_time;
+        } else if (current_state_two.recovery) {
+          recovery_two = current_state_two.state_time;
+        } else {
+          startup_two = current_state_two.state_time;
+        }
+      }
+    }
+
+    // update advantage
+    if (current_state_one.canact) {
+      if (!current_state_two.canact) {
+        ++advantage;
+      }
+    } else {
+      if (current_state_two.canact) {
+        --advantage;
+      } else {
+        advantage = 0;
+      }
+    }
+
+    // update frame display
+
     auto& active_segment = segments[current_segment_idx];
 
     // only trigger truncation logic if mid-combo
@@ -259,9 +319,9 @@ struct FrameState {
       auto& prev_segment = segments[(current_segment_idx + FRAME_SEGMENTS - 1) % FRAME_SEGMENTS];
 
       // we are truncating, update truncated
-      if (time_one >= COMBO_TRUNC_TIME && time_two >= COMBO_TRUNC_TIME) {
-        prev_segment.trunc_one = time_one + 1;
-        prev_segment.trunc_two = time_two + 1;
+      if (time_one > COMBO_TRUNC_TIME && time_two > COMBO_TRUNC_TIME) {
+        prev_segment.trunc_one = time_one;
+        prev_segment.trunc_two = time_two;
         DEBUG_PRINT(STR("Truncating 1:{}, 2:{}\n"), prev_segment.trunc_one, prev_segment.trunc_two);
         return;
       }
@@ -271,13 +331,13 @@ struct FrameState {
       prev_segment.trunc_two = 0;
 
       // previous section has ended
-      if (time_one == 0) {
+      if (time_one == 1) {
         DEBUG_PRINT(STR("New Section for One\n"));
         active_segment.color_one = state_colors[type_one];
         // ... and was long enough that we want to print length
-        if (previous_state_one.state_time >= COMBO_NUM_TIME) {
+        if (previous_state_one.state_time > COMBO_NUM_TIME) {
           DEBUG_PRINT(STR("Last section requires truncating\n"));
-          prev_segment.trunc_one = previous_state_one.state_time + 1;
+          prev_segment.trunc_one = previous_state_one.state_time;
         }
       } else {
         DEBUG_PRINT(STR("Same Section for One\n"));
@@ -286,13 +346,13 @@ struct FrameState {
         active_segment.color_one = prev_segment.color_one * COLOR_DECAY;
       }
 
-      if (time_two == 0) {
+      if (time_two == 1) {
         DEBUG_PRINT(STR("New Section for Two\n"));
         active_segment.color_two = state_colors[type_two];
         // ... and was long enough that we want to print length
-        if (previous_state_two.state_time >= COMBO_NUM_TIME) {
+        if (previous_state_two.state_time > COMBO_NUM_TIME) {
           DEBUG_PRINT(STR("Last section requires truncating\n"));
-          prev_segment.trunc_two = previous_state_two.state_time + 1;
+          prev_segment.trunc_two = previous_state_two.state_time;
         }
       } else {
         DEBUG_PRINT(STR("Same Section for Two\n"));
@@ -351,6 +411,12 @@ void drawFrames(RC::Unreal::UObject* hud) {
   if (!tool.drawrect_func) {
     throw std::runtime_error("DrawTool was unitialized");
   }
+
+  auto player_one_info = std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", state_data.startup_one, state_data.active_one, state_data.recovery_one, state_data.advantage);
+  auto player_two_info = std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", state_data.startup_two, state_data.active_two, state_data.recovery_two, -state_data.advantage);
+
+  tool.drawText(BAR_LEFT, INFO_ONE_LOC, player_one_info, 1.2);
+  tool.drawText(BAR_LEFT, INFO_TWO_LOC, player_two_info, 1.2);
 
   tool.drawRect(BAR_LEFT, BAR_ONE_TOP, BAR_WIDTH, BAR_HEIGHT, background_color);
   tool.drawRect(BAR_LEFT, BAR_TWO_TOP, BAR_WIDTH, BAR_HEIGHT, background_color);
