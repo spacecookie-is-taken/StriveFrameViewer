@@ -11,7 +11,8 @@ struct GetSizeParams {
 
 enum PlayerStateType {
 	PST_Idle = 0,
-	PST_Stunned,
+	PST_BlockStunned,
+  PST_HitStunned,
 	PST_Busy,
 	PST_Attacking,
 	PST_Recovering,
@@ -21,7 +22,8 @@ enum PlayerStateType {
 
 struct PlayerState {
 	bool canact;
-  bool stunned;
+  bool block_stunned;
+  bool hit_stunned;
 	bool active;
 	int time;
 	bool recovery;

@@ -5,14 +5,17 @@ This is a fork of Ryn's Advantage viewer mod that allows you to see a SF6 style 
 ![image info](./docs/readme_banner.png)
 
 ## Installation
-Download the ue4ss and Frame Viewer zip files from releases, and extract the contents into the win64 directory of GGST. 
+Download the ue4ss and Frame Viewer zip files from releases, and extract the contents into the win64 directory of GGST.
 
 e.g. ```C:\Program Files (x86)\Steam\steamapps\common\GUILTY GEAR STRIVE\RED\Binaries\Win64```
+
+This does not require any pak mods installed via unverum.
 
 ## The view explained
 Two bars along the bottom of the screen display a series of frames. The top bar corresponds to player one, the bottom bar to player two. The color of these frames indicates different states that the respective player is in.
 - <span style="color:gray">Gray</span>: the player is idle 
-- <span style="color:blue">Blue</span>: the player is stunned
+- <span style="color:blue">Blue</span>: the player is block stunned
+- <span style="color:green">Green</span>: the player is hit stunned
 - <span style="color:yellow">Yellow</span>: the player is in an animation
 - <span style="color:red">Red</span>: the player has active hurtboxes
 - <span style="color:orange">Orange</span>: the player is in a recovery animation
@@ -28,8 +31,10 @@ Additionally, there are some space saving features. If a segment of frames is lo
 - Fix some projectiles and moves not displaying active hitbox frames.
 - Fix some cases where idle total time is not displayed.
 - Fix total time getting cut off if greater than 100 frames.
-- Differentiate between block stun and hitstun
 - Add controls to toggle or adjust features like segment truncation
+- Add customization of reset key, or figure out how to pull game controls
+- Add data about last move for each player
+- Add data about largest gap for each player
 
 ## Disabling
 The simplest way to disable this and any other ue4ss mods is to delete or remove the ```dwmapi.dll``` file from the game files. If this file is not present, the rest of the mod will not be loaded when the game is launched.

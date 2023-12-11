@@ -78,6 +78,7 @@ FLinearColor background_color{ 0.05f, 0.05f, 0.05f, 0.7f };
 static const FLinearColor state_colors[] = {
 	FLinearColor{.2f, .2f, .2f, .9f}, // Gray
 	FLinearColor{.1f, .1f, .8f, .9f}, // Blue
+  FLinearColor{.1f, .6f, .1f, .9f}, // Green
 	FLinearColor{.7f, .7f, .1f, .9f}, // Yellow
 	FLinearColor{.8f, .1f, .1f, .9f}, // Red
 	FLinearColor{.8f, .4f, .1f, .9f}  // Orange
@@ -136,7 +137,8 @@ struct DrawTool {
 
 PlayerState::PlayerState()
 	: canact(false)
-	, stunned(false)
+	, block_stunned(false)
+  , hit_stunned(false)
 	, active(false)
 	, time(-1)
 	, recovery(false)
@@ -148,7 +150,8 @@ PlayerState::PlayerState()
 
 PlayerState::PlayerState(asw_player& player, const PlayerState& last, bool proj_active)
 	: canact(player.can_act())
-	, stunned(player.is_stunned())
+	, block_stunned(player.is_in_blockstun() || player.is_stagger() || player.is_guard_crush())
+  , hit_stunned(player.is_in_hitstun() || player.is_knockdown() || player.is_roll())
 	, active(player.is_active() || proj_active)
 {
 	time = player.action_time;
@@ -167,7 +170,8 @@ PlayerState::PlayerState(asw_player& player, const PlayerState& last, bool proj_
 
 PlayerStateType PlayerState::getType() const {
 	if (canact) { return PST_Idle; }
-	else if (stunned) { return PST_Stunned; }
+	else if (block_stunned) { return PST_BlockStunned; }
+  else if (hit_stunned) { return PST_HitStunned; }
 	else if (active) { return PST_Attacking; }
 	else if (recovery) { return PST_Recovering; }
 	else { return PST_Busy; }
