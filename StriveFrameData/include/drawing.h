@@ -42,3 +42,4 @@ void addFrame(asw_player& player_one, asw_player& player_two, bool player_one_pr
 void resetFrames();
 
 void drawFrames(RC::Unreal::UObject* hud);
+void drawConfigure();

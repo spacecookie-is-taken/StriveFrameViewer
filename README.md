@@ -27,6 +27,7 @@ Additionally, there are some space saving features. If a segment of frames is lo
 ## Controls
 - F2: Pause/Resume the game
 - F3: (if paused) advance the game by one frame
+- F4: Configure "Training mode reset" button (currently defaults to the right thumbstick button, and is not saved)
 
 ## TODO:
 - Fix "off by one" errors where the length of sections is incorrect for some moves, I think this comes down to consequences the odd (but rational in context) way that Strive encodes frame data in bbscript.

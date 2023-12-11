@@ -160,9 +160,13 @@ bool MatchStartFlag = false;
 bool renderingHooked = false;
 bool ShouldUpdateBattle = true;
 bool ShouldAdvanceBattle = false;
+bool ConfigureResetButton = false;
 bool f2_pressed = false;
 bool f3_pressed = false;
+bool f4_pressed = false;
+
 int resetBleedProtect = 0;
+int resetButton = 7;
 
 /* Functions */
 
@@ -251,6 +255,7 @@ void hook_MatchStart(AREDGameState_Battle* GameState) {
   MatchStartFlag = true;
   ShouldAdvanceBattle = false;
   ShouldUpdateBattle = true;
+  ConfigureResetButton = false;
 
   // reset unreal pointers
   input_actor = nullptr;
@@ -267,6 +272,9 @@ void hook_AHUDPostRender(void* hud) {
   orig_AHUDPostRender(hud);
   if (drawrect_func && hud_actor) {
     if (hud_actor == hud) {
+      if (ConfigureResetButton) {
+        drawConfigure();
+      }
       drawFrames(hud_actor);
     } else {
       RC::Output::send<LogLevel::Warning>(STR("Expiring HUD actor\n"));
@@ -300,6 +308,14 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
   } else {
     f3_pressed = false;
   }
+  if (GetAsyncKeyState(VK_F4) & 0x8000) {
+    if (!f4_pressed) {
+      ConfigureResetButton = true;
+      f4_pressed = true;
+    }
+  } else {
+    f4_pressed = false;
+  }
 
   if (ShouldUpdateBattle || ShouldAdvanceBattle) {
     orig_UpdateBattle(GameState, DeltaTime);
@@ -322,6 +338,10 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
         InputParamData& queried_key = *ButtonData[idx];
         input_actor->ProcessEvent(press_func, &queried_key);
         ButtonStates[idx] = queried_key.was_pressed;
+        if (ButtonStates[idx] && ConfigureResetButton) {
+          resetButton = idx;
+          ConfigureResetButton = false;
+        }
       }
     }
 
@@ -357,7 +377,7 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     }
 
     /* Update Frame Data */
-    if (ButtonStates.at(7)) {
+    if (ButtonStates.at(resetButton)) {
       resetBleedProtect = 7;
     }
     // sometimes the reset doesn't fully take effect for a few frames, this prevents combo data from "bleeding" over

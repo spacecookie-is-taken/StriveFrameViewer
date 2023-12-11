@@ -117,16 +117,14 @@ struct DrawTool {
     hud_actor->ProcessEvent(drawrect_func, &rect_params);
   }
 
-  void drawText(int x, int y, const std::wstring& text) const {
+  void drawText(int x, int y, const std::wstring& text, double scale) const {
     RC::Unreal::FString Text(text.c_str());
-
-    x -= (text.size() - 1) * 5 - 2;
 
     double prj_x = center_x + (units * x);
     double prj_y = center_y + (units * y);
 
     // TODO: scale text off screen resolution
-    DrawTextParams params{Text, color_white, prj_x, prj_y, nullptr, units * 1.2, false};
+    DrawTextParams params{Text, color_white, prj_x, prj_y, nullptr, units * scale, false};
 
     hud_actor->ProcessEvent(drawtext_func, &params);
   }
@@ -331,17 +329,26 @@ void drawFrames(RC::Unreal::UObject* hud) {
   for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
     int left = BAR_LEFT + (SEG_TOTAL * idx) + SEG_SPACING;
     const auto& info = state_data.segments[idx];
+    
     if (info.color_one.A != 0.f) {
       tool.drawRect(left, SEGS_ONE_TOP, SEG_WIDTH, SEG_HEIGHT, info.color_one);
       if (info.trunc_one > 0) {
-        tool.drawText(left, SEGS_ONE_TOP, std::to_wstring(info.trunc_one));
+        auto text = std::to_wstring(info.trunc_one);
+        int text_left = left - (text.size() - 1) * 5 - 2;
+        tool.drawText(left, SEGS_ONE_TOP, text, 1.2);
       }
     }
     if (info.color_two.A != 0.f) {
       tool.drawRect(left, SEGS_TWO_TOP, SEG_WIDTH, SEG_HEIGHT, info.color_two);
       if (info.trunc_two > 0) {
-        tool.drawText(left, SEGS_TWO_TOP, std::to_wstring(info.trunc_two));
+        auto text = std::to_wstring(info.trunc_two);
+        int text_left = left - (text.size() - 1) * 5 - 2;
+        tool.drawText(left, SEGS_TWO_TOP, text, 1.2);
       }
     }
   }
+}
+
+void drawConfigure() {
+  tool.drawText(-60, SEGS_ONE_TOP - 40, L"Configuring reset input", 2.0);
 }
