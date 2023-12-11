@@ -335,7 +335,7 @@ void drawFrames(RC::Unreal::UObject* hud) {
       if (info.trunc_one > 0) {
         auto text = std::to_wstring(info.trunc_one);
         int text_left = left - (text.size() - 1) * 5 - 2;
-        tool.drawText(left, SEGS_ONE_TOP, text, 1.2);
+        tool.drawText(text_left, SEGS_ONE_TOP, text, 1.2);
       }
     }
     if (info.color_two.A != 0.f) {
@@ -343,7 +343,7 @@ void drawFrames(RC::Unreal::UObject* hud) {
       if (info.trunc_two > 0) {
         auto text = std::to_wstring(info.trunc_two);
         int text_left = left - (text.size() - 1) * 5 - 2;
-        tool.drawText(left, SEGS_TWO_TOP, text, 1.2);
+        tool.drawText(text_left, SEGS_TWO_TOP, text, 1.2);
       }
     }
   }
