@@ -2,6 +2,8 @@
 
 This is a fork of Ryn's Advantage viewer mod that allows you to see a SF6 style frame data display in training mode (and only training mode).
 
+![image info](./docs/readme_banner.png)
+
 ## Installation
 Download the ue4ss and Frame Viewer zip files from releases, and extract the contents into the win64 directory of GGST. 
 
@@ -13,7 +15,7 @@ Two bars along the bottom of the screen display a series of frames. The top bar 
 - <span style="color:blue">Blue</span>: the player is stunned
 - <span style="color:yellow">Yellow</span>: the player is in an animation
 - <span style="color:red">Red</span>: the player has active hurtboxes
-- <span style="color:orange">Red</span>: the player is in a recovery animation
+- <span style="color:orange">Orange</span>: the player is in a recovery animation
 
 If the training mode reset is triggered (currently hard coded to Right Thumbstick button) or both players don't input a move for 20 frames, the combo is considered "ended" and the display will reset on the next input move.
 
