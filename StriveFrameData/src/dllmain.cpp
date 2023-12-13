@@ -17,6 +17,19 @@
 
 // Classes
 class UREDGameCommon : public Unreal::UObject {};
+struct FKey {
+  Unreal::FName KeyName;
+  void* KeyDetailsObject;
+  void* KeyDetailsRefController;
+  FKey()
+  : KeyName(L"")
+  , KeyDetailsObject(nullptr)
+  , KeyDetailsRefController(nullptr) {}
+  FKey(const Unreal::FName& src)
+  : KeyName(src)
+  , KeyDetailsObject(nullptr)
+  , KeyDetailsRefController(nullptr) {}
+};
 struct InputParamData {
   /*
     Imitates FKey and bool return value
@@ -32,16 +45,20 @@ struct InputParamData {
       bool
     Size matches 0x18 from ghidra, allignment matches as well
   */
-  Unreal::FName KeyName;
-  void* KeyDetailsObject;
-  void* KeyDetailsRefController;
+  FKey Key;
   bool was_pressed;
 
   InputParamData(const Unreal::FName& src)
-  : KeyName(src)
-  , KeyDetailsObject(nullptr)
-  , KeyDetailsRefController(nullptr)
+  : Key(src)
   , was_pressed(false) {}
+};
+struct ActionKeyMapping {
+  FName ActionName;
+  uint8_t bShift : 1;
+  uint8_t bCtrl : 1;
+  uint8_t bAlt : 1;
+  uint8_t bCmd : 1;
+  FKey Key;
 };
 
 // Functions
@@ -171,6 +188,20 @@ int resetButton = 7;
 /* Functions */
 
 // Utilities
+void getInputNames() {
+  RC::Output::send<LogLevel::Warning>(STR("Actor Pointer: {}\n"), (void*)player_actor);
+  if (!player_actor) return;
+  char* input_pointer_pointer = (char*)player_actor + 0x350;
+  char* input_pointer = *((char**)input_pointer_pointer);
+  RC::Output::send<LogLevel::Warning>(STR("Input Pointer: {}\n"), (void*)input_pointer);
+  if (!input_pointer) return;
+  char* array_pointer = input_pointer + 0x140;
+  RC::Output::send<LogLevel::Warning>(STR("Iterating Inputs\n"));
+  TArray<ActionKeyMapping>& array = *((TArray<ActionKeyMapping>*)array_pointer);
+  for (auto& x : array) {
+    RC::Output::send<LogLevel::Warning>(STR("Input: {}, Key: {}\n"), x.ActionName.ToString(), x.Key.KeyName.ToString());
+  }
+}
 const void* vtable_hook(const void** vtable, const int index, const void* hook) {
   DWORD old_protect;
   VirtualProtect(&vtable[index], sizeof(void*), PAGE_READWRITE, &old_protect);
@@ -330,6 +361,9 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     if (MatchStartFlag) {
       MatchStartFlag = false;
       initRenderHooks();
+
+      // test to try and grab input mappings
+      // getInputNames();
     }
 
     /* Get input state */
