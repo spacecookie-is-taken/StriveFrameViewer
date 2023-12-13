@@ -5,7 +5,7 @@ This is a fork of Ryn's Advantage viewer mod that allows you to see a SF6 style 
 ![image info](./docs/readme_banner.png)
 
 ## Installation
-Download the ue4ss and Frame Viewer zip files from releases, and extract the contents into the win64 directory of GGST.
+Download the Frame Viewer zip file from releases, and extract the contents into the win64 directory of GGST.
 
 e.g. ```C:\Program Files (x86)\Steam\steamapps\common\GUILTY GEAR STRIVE\RED\Binaries\Win64```
 
@@ -32,10 +32,8 @@ Additionally, there are some space saving features. If a segment of frames is lo
 ## TODO:
 - Fix "off by one" errors where the length of sections is incorrect for some moves, I think this comes down to consequences the odd (but rational in context) way that Strive encodes frame data in bbscript.
 - Fix some projectiles and moves not displaying active hitbox frames.
-- Fix some cases where idle total time is not displayed.
 - Add controls to toggle or adjust features like segment truncation
-- Add customization of reset key, or figure out how to pull game controls
-- Add data about last move for each player
+- figure out how to pull game controls, to avoid needing customization of reset key
 - Add data about largest gap for each player
 
 ## Disabling
