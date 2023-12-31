@@ -139,6 +139,52 @@ static const wchar_t* RawButtonNames[] = {
 	L"Gamepad_RightStick_Right",
 	L"Gamepad_RightStick_Left"
 };
+
+static const wchar_t*  BomEventNames[] = {
+	L"BOM_EVENT_ENTRY",
+	L"BOM_EVENT_ONLYDRAMA_BATTLE_SETUP",
+	L"BOM_EVENT_ARCADE_EVENT_SETUP",
+	L"BOM_EVENT_ARCADE_EVENT_FINISH",
+	L"BOM_EVENT_ENTRY_EVENT_SETUP",
+	L"BOM_EVENT_ENTRY_EVENT_FINISH",
+	L"BOM_EVENT_ENTRY_BG",
+	L"BOM_EVENT_ENTRY_CHARA",
+	L"BOM_EVENT_RESULT_CHARA",
+	L"BOM_EVENT_RESET",
+	L"BOM_EVENT_SET_KEY_FLAG",
+	L"BOM_EVENT_BATTLE_START",
+	L"BOM_EVENT_RESULT_SCREEN_SETUP_FOR_STORY",
+	L"BOM_EVENT_WIN_ACTION",
+	L"BOM_EVENT_MATCH_WIN_ACTION",
+	L"BOM_EVENT_MATCH_RESULT_WAIT",
+	L"BOM_EVENT_DECISION",
+	L"BOM_EVENT_BATTLE_START_CAMERA",
+	L"BOM_EVENT_REQUEST_FINISH_STOP",
+	L"BOM_EVENT_REQUEST_FINISH_CAMERA",
+	L"BOM_EVENT_ENTRY_SCREEN_CONTROL",
+	L"BOM_EVENT_WIN_SCREEN_CONTROL",
+	L"BOM_EVENT_RESET_REMATCH",
+	L"BOM_EVENT_MAIN_MEMBER_CHANGE",
+	L"BOM_EVENT_RESET_ON_MEMBER_CHANGE",
+	L"BOM_EVENT_MATCH_START_EFFECT",
+	L"BOM_EVENT_FINISH_SLOW",
+	L"BOM_EVENT_DESTRUCTION_FINISH_START",
+	L"BOM_EVENT_DRAMATIC_FINISH_START",
+	L"BOM_EVENT_SHENLONG_SYSTEM",
+	L"BOM_EVENT_RESULT_VOICE_COMMON",
+	L"BOM_EVENT_RESULT_VOICE_SPECIAL",
+	L"BOM_EVENT_STOP_RESULT_VOICE",
+	L"BOM_EVENT_DRAMATIC_FINISH_UI_AND_STOP",
+	L"BOM_EVENT_HUD_TUTORIAL_START",
+	L"BOM_EVENT_ENTRY_START",
+	L"BOM_EVENT_ADV_DISP_BATTLE",
+	L"BOM_EVENT_RANNYU_SAVER",
+	L"BOM_EVENT_BBS_EVENT_SETUP",
+	L"BOM_EVENT_BBS_EVENT_FINISH",
+	L"BOM_EVENT_ROUND_RESET_FOR_BG",
+	L"BOM_EVENT_INVALID",
+	L"BOM_EVENT_MAX",
+};
 // clang-format on
 
 /* Variables */
@@ -184,12 +230,9 @@ bool MatchStartFlag = false;
 bool renderingHooked = false;
 bool ShouldUpdateBattle = true;
 bool ShouldAdvanceBattle = false;
-bool ConfigureResetButton = false;
 bool f2_pressed = false;
 bool f3_pressed = false;
 bool f4_pressed = false;
-
-int resetBleedProtect = 0;
 
 std::vector<int> allowed_modes = {GAME_MODE_TRAINING, GAME_MODE_VERSUS, GAME_MODE_REPLAY};
 int last_mode = GAME_MODE_DEBUG_BATTLE;
@@ -217,6 +260,35 @@ void getInputNames() {
   for (auto& x : array) {
     RC::Output::send<LogLevel::Warning>(STR("Input: {}, Key: {}\n"), x.ActionName.ToString(), x.Key.KeyName.ToString());
   }
+}
+void testEventList() {
+  auto* events = asw_events::get();
+  if (!events) return;
+  auto count = events->event_count;
+  if (count == 0) return;
+  RC::Output::send<LogLevel::Warning>(STR("Event Count: {}\n"), count);
+  if (count > 10) {
+    count = 10;
+  }
+  for (unsigned int idx = 0; idx < count; ++idx) {
+    auto& event = events->events[idx];
+    unsigned int type = event.type;
+    if (type < 0 || type > BOM_EVENT_MAX) {
+      RC::Output::send<LogLevel::Warning>(STR("Event {}: OOB {}\n"), idx, type);
+    } else {
+      auto* name = BomEventNames[type];
+      RC::Output::send<LogLevel::Warning>(STR("Event {}: {}\n"), idx, name);
+    }
+  }
+}
+bool checkForReset() {
+  auto* events = asw_events::get();
+  auto count = events->event_count;
+  if (count > 10) count = 10;
+  for (unsigned int idx = 0; idx < count; ++idx) {
+    if (events->events[idx].type == BOM_EVENT_BATTLE_START) return true;
+  }
+  return false;
 }
 const void* vtable_hook(const void** vtable, const int index, const void* hook) {
   DWORD old_protect;
@@ -274,7 +346,7 @@ void initRenderHooks() {
   if (worldsets_actor) {
     RC::Output::send<LogLevel::Warning>(STR("Found World Settings Object\n"));
     paused_prop = worldsets_actor->GetPropertyByName(STR("PauserPlayerState"));
-    if(paused_prop){
+    if (paused_prop) {
       RC::Output::send<LogLevel::Warning>(STR("Found Paused Property\n"));
     }
   }
@@ -332,7 +404,6 @@ void hook_MatchStart(AREDGameState_Battle* GameState) {
   MatchStartFlag = true;
   ShouldAdvanceBattle = false;
   ShouldUpdateBattle = true;
-  ConfigureResetButton = false;
 
   // reset unreal pointers
   input_actor = nullptr;
@@ -351,9 +422,6 @@ void hook_AHUDPostRender(void* hud) {
   orig_AHUDPostRender(hud);
   if (drawrect_func && hud_actor && cfg_overlayEnabled) {
     if (hud_actor == hud) {
-      if (ConfigureResetButton) {
-        drawConfigure();
-      }
       drawFrames(hud_actor);
     } else {
       RC::Output::send<LogLevel::Warning>(STR("Expiring HUD actor\n"));
@@ -394,16 +462,12 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
   } else {
     f3_pressed = false;
   }
-  if (GetAsyncKeyState(VK_F4) & 0x8000) {
-    if (!f4_pressed) {
-      ConfigureResetButton = true;
-      f4_pressed = true;
-    }
-  } else {
-    f4_pressed = false;
-  }
 
   if (ShouldUpdateBattle || ShouldAdvanceBattle) {
+    //testEventList();
+    if (checkForReset()) {
+      resetFrames();
+    }
     orig_UpdateBattle(GameState, DeltaTime);
     ShouldAdvanceBattle = false;
 
@@ -428,15 +492,16 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
       Unreal::AActor** val = static_cast<Unreal::AActor**>(paused_prop->ContainerPtrToValuePtr<void>(worldsets_actor));
       if (val) {
         paused = (*val != nullptr);
-        //RC::Output::send<LogLevel::Warning>(STR("Paused: {}\n"), (void*)(*val));
+        // RC::Output::send<LogLevel::Warning>(STR("Paused: {}\n"), (void*)(*val));
       }
     }
-    if(was_paused != paused){
+    if (was_paused != paused) {
       RC::Output::send<LogLevel::Warning>(STR("Paused: {}\n"), paused);
       was_paused = paused;
     }
 #endif
 
+#if 0
     /* Get input state */
     if (input_actor && press_func) {
       for (int idx = 0; idx < ButtonCount; ++idx) {
@@ -449,6 +514,7 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
         }
       }
     }
+#endif
 
 #ifdef ENABLE_UPDATE_SCANNING  // utility to force scan for new offsets of asw_player after an update
     const uint32_t* scan_root = (uint32_t*)((char*)player_one + SCAN_START);
@@ -482,14 +548,8 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     }
 
     /* Update Frame Data */
-    if (ButtonStates.at(cfg_resetButton)) {
-      resetBleedProtect = 7;
-    }
     // sometimes the reset doesn't fully take effect for a few frames, this prevents combo data from "bleeding" over
-    if (resetBleedProtect > 0) {
-      resetBleedProtect--;
-      resetFrames();
-    } else if(!paused) {
+    if (!paused) {
       addFrame(*player_one, *player_two, player_one_proj, player_two_proj);
     }
 

@@ -38,11 +38,11 @@ In the external mod management GUI, there is a "Strive Frame Data" tab. This tab
 ## TODO:
 - Fix "off by one" errors where the length of sections is incorrect for some moves, I think this comes down to consequences the odd (but rational in context) way that Strive encodes frame data in bbscript.
 - Fix some projectiles and moves not displaying active hitbox frames.
-- Add controls to toggle or adjust features like segment truncation
 - figure out how to pull game controls, to avoid needing customization of reset key
 - Add data about largest gap for each player
-- Detect if the game or replay is paused
-- Save option data between game sessions
+- Fix off by one errors caused by pausing
+- Save options between game sessions
+- Extend options
 
 ## Disabling
 The simplest way to disable this and any other ue4ss mods is to delete or remove the ```dwmapi.dll``` file from the game files. If this file is not present, the rest of the mod will not be loaded when the game is launched.
