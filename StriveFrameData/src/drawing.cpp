@@ -5,8 +5,10 @@
 #include <format>
 
 /* Debug Stuff */
-#if 1
+#if 0
 #define DEBUG_PRINT(...) RC::Output::send<LogLevel::Warning>(__VA_ARGS__)
+#else
+#define DEBUG_PRINT(...)
 #endif
 
 /* Combo Triger Settings */
@@ -14,6 +16,7 @@ constexpr int COMBO_ENDED_TIME = 20;  // time idle before combo is considered ov
 constexpr int COMBO_NUM_TIME = 5;     // minimum time of unchanging states to display state length
 constexpr int COMBO_TRUNC_TIME = 10;  // max segments for unchanging state, after which the segments are truncated
 constexpr double COLOR_DECAY = 0.9f;
+constexpr double BAR_TEXT_SIZE = 0.7;
 
 /* Unprojected coordinate Display Settings */
 constexpr int FRAME_SEGMENTS = 120;
@@ -47,6 +50,7 @@ constexpr int INFO_ONE_LOC = BAR_ONE_TOP - BAR_HEIGHT;
 constexpr int INFO_TWO_LOC = BAR_TWO_BOTTOM + 2;
 
 /* Projected Display Settings */
+constexpr double EXPECTED_DISP_RATIO = 16.0/9.0;
 constexpr double PROJECTED_RATIO = 0.0006f;
 constexpr double CENTER_X_RATIO = 0.5f;
 constexpr double CENTER_Y_RATIO = 0.8f;
@@ -102,21 +106,35 @@ struct DrawTool {
   double center_y = 0.0;
   double units = 0.0;
   RC::Unreal::UObject* hud_actor = nullptr;
+  RC::Unreal::UObject* font = nullptr;
   RC::Unreal::UFunction* drawrect_func = nullptr;
   RC::Unreal::UFunction* drawtext_func = nullptr;
 
   DrawTool() = default;
-  DrawTool(const GetSizeParams& SizeData, RC::Unreal::UFunction* drawrect, RC::Unreal::UFunction* drawtext) {
+  DrawTool(const GetSizeParams& SizeData, RC::Unreal::UFunction* drawrect, RC::Unreal::UFunction* drawtext, RC::Unreal::UObject* fontobject) {
     hud_actor = nullptr;
+    font = fontobject;
     drawrect_func = drawrect;
     drawtext_func = drawtext;
     updateSize(SizeData);
   }
 
   void updateSize(const GetSizeParams& SizeData) {
-    center_x = SizeData.SizeX * CENTER_X_RATIO;
-    center_y = SizeData.SizeY * CENTER_Y_RATIO;
-    units = SizeData.SizeX * PROJECTED_RATIO;
+    auto x = SizeData.SizeX;
+    auto y = SizeData.SizeY;
+
+    // Strive always renders to a 16:9 region, we need to fix this here since our size data is the "true" screen space window size
+    const double actual_ratio = x / y;
+    if(actual_ratio > EXPECTED_DISP_RATIO) { // 21:9 Ultrawide monitor probably
+      x = y * EXPECTED_DISP_RATIO;
+    }
+    else if(actual_ratio < EXPECTED_DISP_RATIO) { // 4:3 or 16:10 monitor probably
+      y = x / EXPECTED_DISP_RATIO;
+    }
+
+    center_x = x * CENTER_X_RATIO;
+    center_y = y * CENTER_Y_RATIO;
+    units = x * PROJECTED_RATIO;
   }
 
   void drawRect(int x, int y, int width, int height, const FLinearColor& color) const {
@@ -134,9 +152,10 @@ struct DrawTool {
 
     double prj_x = center_x + (units * x);
     double prj_y = center_y + (units * y);
-
+    double front_scale = units * scale;
+    
     // TODO: scale text off screen resolution
-    DrawTextParams params{Text, color_white, prj_x, prj_y, nullptr, units * scale, false};
+    DrawTextParams params{Text, color_white, prj_x, prj_y, font, front_scale, false};
 
     hud_actor->ProcessEvent(drawtext_func, &params);
   }
@@ -388,8 +407,8 @@ DrawTool tool;
 
 /* ABI */
 
-void initFrames(const GetSizeParams& sizedata, RC::Unreal::UFunction* drawrect, RC::Unreal::UFunction* drawtext) {
-  tool = DrawTool(sizedata, drawrect, drawtext);
+void initFrames(const GetSizeParams& sizedata, RC::Unreal::UFunction* drawrect, RC::Unreal::UFunction* drawtext, RC::Unreal::UObject* fontobject) {
+  tool = DrawTool(sizedata, drawrect, drawtext, fontobject);
 }
 
 void updateSize(const GetSizeParams& sizedata) {
@@ -415,8 +434,8 @@ void drawFrames(RC::Unreal::UObject* hud) {
   auto player_one_info = std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", state_data.startup_one, state_data.active_one, state_data.recovery_one, state_data.advantage);
   auto player_two_info = std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", state_data.startup_two, state_data.active_two, state_data.recovery_two, -state_data.advantage);
 
-  tool.drawText(BAR_LEFT, INFO_ONE_LOC, player_one_info, 1.2);
-  tool.drawText(BAR_LEFT, INFO_TWO_LOC, player_two_info, 1.2);
+  tool.drawText(BAR_LEFT, INFO_ONE_LOC, player_one_info, BAR_TEXT_SIZE);
+  tool.drawText(BAR_LEFT, INFO_TWO_LOC, player_two_info, BAR_TEXT_SIZE);
 
   tool.drawRect(BAR_LEFT, BAR_ONE_TOP, BAR_WIDTH, BAR_HEIGHT, background_color);
   tool.drawRect(BAR_LEFT, BAR_TWO_TOP, BAR_WIDTH, BAR_HEIGHT, background_color);
@@ -429,21 +448,21 @@ void drawFrames(RC::Unreal::UObject* hud) {
       tool.drawRect(left, SEGS_ONE_TOP, SEG_WIDTH, SEG_HEIGHT, info.color_one);
       if (info.trunc_one > 0) {
         auto text = std::to_wstring(info.trunc_one);
-        int text_left = left - (text.size() - 1) * 5 - 2;
-        tool.drawText(text_left, SEGS_ONE_TOP, text, 1.2);
+        int text_left = left - (text.size() - 1) * 8 + 1;
+        tool.drawText(text_left, SEGS_ONE_TOP, text, BAR_TEXT_SIZE);
       }
     }
     if (info.color_two.A != 0.f) {
       tool.drawRect(left, SEGS_TWO_TOP, SEG_WIDTH, SEG_HEIGHT, info.color_two);
       if (info.trunc_two > 0) {
         auto text = std::to_wstring(info.trunc_two);
-        int text_left = left - (text.size() - 1) * 5 - 2;
-        tool.drawText(text_left, SEGS_TWO_TOP, text, 1.2);
+        int text_left = left - (text.size() - 1) * 8 + 1;
+        tool.drawText(text_left, SEGS_TWO_TOP, text, BAR_TEXT_SIZE);
       }
     }
   }
 }
 
 void drawConfigure() {
-  tool.drawText(-60, SEGS_ONE_TOP - 40, L"Configuring reset input", 2.0);
+  tool.drawText(-60, SEGS_ONE_TOP - 40, L"Configuring reset input", 1.2);
 }

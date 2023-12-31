@@ -166,6 +166,7 @@ GetSizeParams SizeData;
 Unreal::UObject* input_actor = nullptr;
 Unreal::UObject* hud_actor = nullptr;
 Unreal::UObject* player_actor = nullptr;
+Unreal::UObject* font_object = nullptr;
 Unreal::UFunction* press_func = nullptr;
 Unreal::UFunction* drawrect_func = nullptr;
 Unreal::UFunction* getsize_func = nullptr;
@@ -215,6 +216,16 @@ void initRenderHooks() {
   RC::Output::send<LogLevel::Warning>(STR("Finding HUD actor\n"));
   static auto hud_class_name = Unreal::FName(STR("REDHUD_Battle"), Unreal::FNAME_Add);
   hud_actor = UObjectGlobals::FindFirstOf(hud_class_name);
+
+  static auto ufont_class_name = Unreal::FName(STR("Font"), Unreal::FNAME_Add);
+  std::vector<RC::Unreal::UObject*> all_fonts;
+  UObjectGlobals::FindAllOf(ufont_class_name, all_fonts);
+  for (auto* font : all_fonts) {
+    RC::Output::send<LogLevel::Warning>(STR("- {}\n"), font->GetName());
+    if (font->GetName() == L"RobotoDistanceField") {
+      font_object = font;
+    }
+  }
 
   /* Input State bp hooks */
   static auto input_class_name = Unreal::FName(STR("REDPlayerController_Battle"), Unreal::FNAME_Add);
@@ -271,7 +282,7 @@ void initRenderHooks() {
     RC::Output::send<LogLevel::Warning>(STR("VIEW SIZE - x:{}, y:{}\n"), SizeData.SizeX, SizeData.SizeY);
   }
 
-  initFrames(SizeData, drawrect_func, drawtext_func);
+  initFrames(SizeData, drawrect_func, drawtext_func, font_object);
 
   if (renderingHooked) return;
   renderingHooked = true;
@@ -296,6 +307,7 @@ void hook_MatchStart(AREDGameState_Battle* GameState) {
   press_func = nullptr;
   drawrect_func = nullptr;
   getsize_func = nullptr;
+  font_object = nullptr;
 
   orig_MatchStart(GameState);
 }
@@ -425,6 +437,7 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     /* Update Screen Size */
     if (getsize_func) {
       player_actor->ProcessEvent(getsize_func, &SizeData);
+      RC::Output::send<LogLevel::Warning>(STR("Screen Size: {} {}\n"), SizeData.SizeX, SizeData.SizeY);
       updateSize(SizeData);
     }
   }
