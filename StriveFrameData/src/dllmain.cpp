@@ -5,6 +5,7 @@
 
 #include <UE4SSProgram.hpp>
 #include <UnrealDef.hpp>
+#include <Unreal/World.hpp>
 #include <Mod/CppUserModBase.hpp>
 #include <DynamicOutput/DynamicOutput.hpp>
 
@@ -163,17 +164,22 @@ std::vector<bool> ButtonStates;
 GetSizeParams SizeData;
 
 // Unreal Objects
-Unreal::UObject* input_actor = nullptr;
+Unreal::AActor* input_actor = nullptr;
 Unreal::UObject* hud_actor = nullptr;
 Unreal::UObject* player_actor = nullptr;
 Unreal::UObject* font_object = nullptr;
+Unreal::UObject* worldsets_actor = nullptr;
+
 Unreal::UFunction* press_func = nullptr;
 Unreal::UFunction* drawrect_func = nullptr;
 Unreal::UFunction* getsize_func = nullptr;
 
+Unreal::FProperty* paused_prop = nullptr;
+
 // State Data
 UREDGameCommon* GameCommon;
 UE4SSProgram* Program;
+bool in_allowed_mode = false;
 bool MatchStartFlag = false;
 bool renderingHooked = false;
 bool ShouldUpdateBattle = true;
@@ -184,7 +190,16 @@ bool f3_pressed = false;
 bool f4_pressed = false;
 
 int resetBleedProtect = 0;
-int resetButton = 7;
+
+std::vector<int> allowed_modes = {GAME_MODE_TRAINING, GAME_MODE_VERSUS, GAME_MODE_REPLAY};
+int last_mode = GAME_MODE_DEBUG_BATTLE;
+bool was_paused = false;
+
+// Configuration Data
+bool cfg_overlayEnabled = true;
+bool cfg_truncEnabled = true;
+bool cfg_dustloopEnabled = false;
+int cfg_resetButton = 7;
 
 /* Functions */
 
@@ -230,17 +245,37 @@ void initRenderHooks() {
   /* Input State bp hooks */
   static auto input_class_name = Unreal::FName(STR("REDPlayerController_Battle"), Unreal::FNAME_Add);
   static auto input_func_name = Unreal::FName(STR("WasInputKeyJustPressed"), Unreal::FNAME_Add);
+  static auto getworldsets_func_name = Unreal::FName(STR("K2_GetWorldSettings"), Unreal::FNAME_Add);
+  Unreal::UFunction* getworldsets_func = nullptr;
+  Unreal::UWorld* world_actor = nullptr;
 
-  input_actor = UObjectGlobals::FindFirstOf(input_class_name);
+  input_actor = static_cast<Unreal::AActor*>(UObjectGlobals::FindFirstOf(input_class_name));
   if (input_actor) {
     RC::Output::send<LogLevel::Warning>(STR("Found Input Object\n"));
     press_func = input_actor->GetFunctionByNameInChain(input_func_name);
+
+    world_actor = input_actor->GetWorld();
   }
   if (press_func) {
     RC::Output::send<LogLevel::Warning>(STR("Found Input Function\n"));
     ButtonStates.resize(ButtonCount, false);
     for (int idx = 0; idx < ButtonCount; ++idx) {
       ButtonData[idx] = new InputParamData(Unreal::FName(RawButtonNames[idx], Unreal::FNAME_Add));
+    }
+  }
+  if (world_actor) {
+    RC::Output::send<LogLevel::Warning>(STR("Found World Object\n"));
+    getworldsets_func = world_actor->GetFunctionByNameInChain(getworldsets_func_name);
+  }
+  if (getworldsets_func) {
+    RC::Output::send<LogLevel::Warning>(STR("Found World Settings Function\n"));
+    world_actor->ProcessEvent(getworldsets_func, &worldsets_actor);
+  }
+  if (worldsets_actor) {
+    RC::Output::send<LogLevel::Warning>(STR("Found World Settings Object\n"));
+    paused_prop = worldsets_actor->GetPropertyByName(STR("PauserPlayerState"));
+    if(paused_prop){
+      RC::Output::send<LogLevel::Warning>(STR("Found Paused Property\n"));
     }
   }
 
@@ -303,6 +338,7 @@ void hook_MatchStart(AREDGameState_Battle* GameState) {
   input_actor = nullptr;
   hud_actor = nullptr;
   player_actor = nullptr;
+  worldsets_actor = nullptr;
 
   press_func = nullptr;
   drawrect_func = nullptr;
@@ -313,7 +349,7 @@ void hook_MatchStart(AREDGameState_Battle* GameState) {
 }
 void hook_AHUDPostRender(void* hud) {
   orig_AHUDPostRender(hud);
-  if (drawrect_func && hud_actor) {
+  if (drawrect_func && hud_actor && cfg_overlayEnabled) {
     if (hud_actor == hud) {
       if (ConfigureResetButton) {
         drawConfigure();
@@ -330,7 +366,14 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     GameCommon = reinterpret_cast<UREDGameCommon*>(UObjectGlobals::FindFirstOf(FName(STR("REDGameCommon"))));
     return;
   }
-  if (orig_GetGameMode(GameCommon) != static_cast<int>(GAME_MODE_TRAINING)) {
+  if (int current_mode = orig_GetGameMode(GameCommon); current_mode != last_mode) {
+    RC::Output::send<LogLevel::Warning>(STR("Mode Change: {}\n"), current_mode);
+    last_mode = current_mode;
+
+    in_allowed_mode = (std::find(allowed_modes.begin(), allowed_modes.end(), current_mode) != allowed_modes.end());
+  }
+
+  if (!in_allowed_mode) {
     orig_UpdateBattle(GameState, DeltaTime);
     return;
   }
@@ -378,6 +421,22 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
       // getInputNames();
     }
 
+    /* Get pause state */
+#if 1
+    bool paused = false;
+    if (paused_prop) {
+      Unreal::AActor** val = static_cast<Unreal::AActor**>(paused_prop->ContainerPtrToValuePtr<void>(worldsets_actor));
+      if (val) {
+        paused = (*val != nullptr);
+        //RC::Output::send<LogLevel::Warning>(STR("Paused: {}\n"), (void*)(*val));
+      }
+    }
+    if(was_paused != paused){
+      RC::Output::send<LogLevel::Warning>(STR("Paused: {}\n"), paused);
+      was_paused = paused;
+    }
+#endif
+
     /* Get input state */
     if (input_actor && press_func) {
       for (int idx = 0; idx < ButtonCount; ++idx) {
@@ -385,7 +444,7 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
         input_actor->ProcessEvent(press_func, &queried_key);
         ButtonStates[idx] = queried_key.was_pressed;
         if (ButtonStates[idx] && ConfigureResetButton) {
-          resetButton = idx;
+          cfg_resetButton = idx;
           ConfigureResetButton = false;
         }
       }
@@ -423,21 +482,21 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     }
 
     /* Update Frame Data */
-    if (ButtonStates.at(resetButton)) {
+    if (ButtonStates.at(cfg_resetButton)) {
       resetBleedProtect = 7;
     }
     // sometimes the reset doesn't fully take effect for a few frames, this prevents combo data from "bleeding" over
     if (resetBleedProtect > 0) {
       resetBleedProtect--;
       resetFrames();
-    } else {
+    } else if(!paused) {
       addFrame(*player_one, *player_two, player_one_proj, player_two_proj);
     }
 
     /* Update Screen Size */
     if (getsize_func) {
       player_actor->ProcessEvent(getsize_func, &SizeData);
-      RC::Output::send<LogLevel::Warning>(STR("Screen Size: {} {}\n"), SizeData.SizeX, SizeData.SizeY);
+      // RC::Output::send<LogLevel::Warning>(STR("Screen Size: {} {}\n"), SizeData.SizeX, SizeData.SizeY);
       updateSize(SizeData);
     }
   }
@@ -451,15 +510,33 @@ class StriveFrameData : public CppUserModBase {
 
   StriveFrameData()
   : CppUserModBase() {
-    ModName = STR("Strive Frame Advantage");
-    ModVersion = STR("1.0");
+    ModName = STR("Strive Frame Data");
+    ModVersion = STR("1.03");
     ModDescription = STR("A tool to display frame advantage.");
-    ModAuthors = STR("WistfulHopes");
+    ModAuthors = STR("pbozai");
     UpdateBattle_Detour = nullptr;
     MatchStart_Detour = nullptr;
     // Do not change this unless you want to target a UE4SS version
     // other than the one you're currently building with somehow.
     // ModIntendedSDKVersion = STR("2.6");
+
+    register_tab(STR("Strive Frame Data"), [](CppUserModBase* instance) {
+      UE4SS_ENABLE_IMGUI();
+      // RC::Output::send<LogLevel::Warning>(STR("IMGUI Pointer: {}\n"), (void*)ImGui::GetCurrentContext());
+
+      ImGui::Text("Options:");
+
+      ImGui::Checkbox("Enable Overlay", &cfg_overlayEnabled);
+      // ImGui::Checkbox("Enable Truncation", &cfg_truncEnabled);
+      // ImGui::Checkbox("Show Dustloop Style Timings", &cfg_dustloopEnabled);
+      // Input Selector for reset button
+      // Input Selector for pause gameplay
+      // Input Selector for advance gameplay by a frame
+      // Add "End Time" for how long the bar should wait before thinking a combo is dropped
+
+      ImGui::Text("Help:");
+      ImGui::Text("TODO");
+    });
   }
 
   ~StriveFrameData() override {}

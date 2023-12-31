@@ -28,6 +28,12 @@ Additionally, there are some space saving features. If a segment of frames is lo
 - F2: Pause/Resume the game
 - F3: (if paused) advance the game by one frame
 - F4: Configure "Training mode reset" button (currently defaults to the right thumbstick button, and is not saved)
+- Control + O: Open the external mod management GUI
+
+## Options
+In the external mod management GUI, there is a "Strive Frame Data" tab. This tab lets you configure the mods options.
+- Enable Overlay: Show or hide the overlay. This does not disable the mod, it just hides it from the UI.
+
 
 ## TODO:
 - Fix "off by one" errors where the length of sections is incorrect for some moves, I think this comes down to consequences the odd (but rational in context) way that Strive encodes frame data in bbscript.
@@ -35,6 +41,8 @@ Additionally, there are some space saving features. If a segment of frames is lo
 - Add controls to toggle or adjust features like segment truncation
 - figure out how to pull game controls, to avoid needing customization of reset key
 - Add data about largest gap for each player
+- Detect if the game or replay is paused
+- Save option data between game sessions
 
 ## Disabling
 The simplest way to disable this and any other ue4ss mods is to delete or remove the ```dwmapi.dll``` file from the game files. If this file is not present, the rest of the mod will not be loaded when the game is launched.
