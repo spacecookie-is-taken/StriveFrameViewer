@@ -234,7 +234,7 @@ bool f2_pressed = false;
 bool f3_pressed = false;
 bool f4_pressed = false;
 
-std::vector<int> allowed_modes = {GAME_MODE_TRAINING, GAME_MODE_VERSUS, GAME_MODE_REPLAY};
+std::vector<int> allowed_modes = {GAME_MODE_TRAINING, GAME_MODE_REPLAY};
 int last_mode = GAME_MODE_DEBUG_BATTLE;
 bool was_paused = false;
 
