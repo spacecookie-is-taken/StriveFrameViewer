@@ -32,28 +32,6 @@ struct FKey {
   , KeyDetailsObject(nullptr)
   , KeyDetailsRefController(nullptr) {}
 };
-struct InputParamData {
-  /*
-    Imitates FKey and bool return value
-      FName
-      TSharedPtr<FKeyDetails,...>
-        FKeyDetails*
-        FSharedReferencer<...>
-          FReferenceControllerBase*
-    Flattened:
-      FName
-      FKeyDetails*
-      FReferenceControllerBase*
-      bool
-    Size matches 0x18 from ghidra, allignment matches as well
-  */
-  FKey Key;
-  bool was_pressed;
-
-  InputParamData(const Unreal::FName& src)
-  : Key(src)
-  , was_pressed(false) {}
-};
 struct ActionKeyMapping {
   FName ActionName;
   uint8_t bShift : 1;
@@ -108,39 +86,6 @@ enum GAME_MODE : int32_t {
 
 // Strings
 // clang-format off
-static const wchar_t* RawButtonNames[] = {
-	L"Gamepad_LeftX",
-	L"Gamepad_LeftY",
-	L"Gamepad_RightX",
-	L"Gamepad_RightY",
-	L"Gamepad_LeftTriggerAxis",
-	L"Gamepad_RightTriggerAxis",
-	L"Gamepad_LeftThumbstick",
-	L"Gamepad_RightThumbstick",
-	L"Gamepad_Special_Left",
-	L"Gamepad_Special_Right",
-	L"Gamepad_FaceButton_Bottom",
-	L"Gamepad_FaceButton_Right",
-	L"Gamepad_FaceButton_Left",
-	L"Gamepad_FaceButton_Top",
-	L"Gamepad_LeftShoulder",
-	L"Gamepad_RightShoulder",
-	L"Gamepad_LeftTrigger",
-	L"Gamepad_RightTrigger",
-	L"Gamepad_DPad_Up",
-	L"Gamepad_DPad_Down",
-	L"Gamepad_DPad_Right",
-	L"Gamepad_DPad_Left",
-	L"Gamepad_LeftStick_Up,"
-	L"Gamepad_LeftStick_Down",
-	L"Gamepad_LeftStick_Right",
-	L"Gamepad_LeftStick_Left",
-	L"Gamepad_RightStick_Up",
-	L"Gamepad_RightStick_Down",
-	L"Gamepad_RightStick_Right",
-	L"Gamepad_RightStick_Left"
-};
-
 static const wchar_t*  BomEventNames[] = {
 	L"BOM_EVENT_ENTRY",
 	L"BOM_EVENT_ONLYDRAMA_BATTLE_SETUP",
@@ -205,9 +150,6 @@ funcMatchStart_t orig_MatchStart;
 funcUpdateBattle_t orig_UpdateBattle;
 
 // Game Data
-constexpr int ButtonCount = sizeof(RawButtonNames) / sizeof(wchar_t*);
-InputParamData* ButtonData[ButtonCount];
-std::vector<bool> ButtonStates;
 GetSizeParams SizeData;
 
 // Unreal Objects
@@ -217,7 +159,6 @@ Unreal::UObject* player_actor = nullptr;
 Unreal::UObject* font_object = nullptr;
 Unreal::UObject* worldsets_actor = nullptr;
 
-Unreal::UFunction* press_func = nullptr;
 Unreal::UFunction* drawrect_func = nullptr;
 Unreal::UFunction* getsize_func = nullptr;
 
@@ -353,16 +294,7 @@ void initRenderHooks() {
   input_actor = static_cast<Unreal::AActor*>(UObjectGlobals::FindFirstOf(input_class_name));
   if (input_actor) {
     RC::Output::send<LogLevel::Warning>(STR("Found Input Object\n"));
-    press_func = input_actor->GetFunctionByNameInChain(input_func_name);
-
     world_actor = input_actor->GetWorld();
-  }
-  if (press_func) {
-    RC::Output::send<LogLevel::Warning>(STR("Found Input Function\n"));
-    ButtonStates.resize(ButtonCount, false);
-    for (int idx = 0; idx < ButtonCount; ++idx) {
-      ButtonData[idx] = new InputParamData(Unreal::FName(RawButtonNames[idx], Unreal::FNAME_Add));
-    }
   }
   if (world_actor) {
     RC::Output::send<LogLevel::Warning>(STR("Found World Object\n"));
@@ -438,7 +370,6 @@ void hook_MatchStart(AREDGameState_Battle* GameState) {
   player_actor = nullptr;
   worldsets_actor = nullptr;
 
-  press_func = nullptr;
   drawrect_func = nullptr;
   getsize_func = nullptr;
   font_object = nullptr;
@@ -508,21 +439,6 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
   if (was_paused != paused) {
     RC::Output::send<LogLevel::Warning>(STR("Paused: {}\n"), paused);
     was_paused = paused;
-  }
-#endif
-
-#if 0
-  /* Get input state */
-  if (input_actor && press_func) {
-    for (int idx = 0; idx < ButtonCount; ++idx) {
-      InputParamData& queried_key = *ButtonData[idx];
-      input_actor->ProcessEvent(press_func, &queried_key);
-      ButtonStates[idx] = queried_key.was_pressed;
-      if (ButtonStates[idx] && ConfigureResetButton) {
-        cfg_resetButton = idx;
-        ConfigureResetButton = false;
-      }
-    }
   }
 #endif
 
