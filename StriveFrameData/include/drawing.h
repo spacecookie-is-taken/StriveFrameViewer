@@ -37,9 +37,8 @@ struct PlayerState {
 };
 
 void initFrames(const GetSizeParams& sizedata, RC::Unreal::UFunction* drawrect, RC::Unreal::UFunction* drawtext, RC::Unreal::UObject* fontobject);
-void updateSize(const GetSizeParams& sizedata);
 void addFrame();
 void resetFrames();
 
-void drawFrames(RC::Unreal::UObject* hud);
+void drawFrames(RC::Unreal::UObject* hud, const GetSizeParams& sizedata);
 void drawConfigure();

@@ -50,7 +50,7 @@ constexpr int INFO_ONE_LOC = BAR_ONE_TOP - BAR_HEIGHT;
 constexpr int INFO_TWO_LOC = BAR_TWO_BOTTOM + 2;
 
 /* Projected Display Settings */
-constexpr double EXPECTED_DISP_RATIO = 16.0/9.0;
+constexpr double EXPECTED_DISP_RATIO = 16.0 / 9.0;
 constexpr double PROJECTED_RATIO = 0.0006f;
 constexpr double CENTER_X_RATIO = 0.5f;
 constexpr double CENTER_Y_RATIO = 0.8f;
@@ -101,7 +101,7 @@ static const FLinearColor state_colors[] = {
 
 /* Classes */
 
-struct DrawTool {
+class DrawTool {
   double center_x = 0.0;
   double center_y = 0.0;
   double units = 0.0;
@@ -110,25 +110,26 @@ struct DrawTool {
   RC::Unreal::UFunction* drawrect_func = nullptr;
   RC::Unreal::UFunction* drawtext_func = nullptr;
 
+ public:
   DrawTool() = default;
   DrawTool(const GetSizeParams& SizeData, RC::Unreal::UFunction* drawrect, RC::Unreal::UFunction* drawtext, RC::Unreal::UObject* fontobject) {
     hud_actor = nullptr;
     font = fontobject;
     drawrect_func = drawrect;
     drawtext_func = drawtext;
-    updateSize(SizeData);
+    update(SizeData);
   }
 
-  void updateSize(const GetSizeParams& SizeData) {
+  void update(const GetSizeParams& SizeData, RC::Unreal::UObject* hud = nullptr) {
+    hud_actor = hud;
     auto x = SizeData.SizeX;
     auto y = SizeData.SizeY;
 
     // Strive always renders to a 16:9 region, we need to fix this here since our size data is the "true" screen space window size
     const double actual_ratio = x / y;
-    if(actual_ratio > EXPECTED_DISP_RATIO) { // 21:9 Ultrawide monitor probably
+    if (actual_ratio > EXPECTED_DISP_RATIO) {  // 21:9 Ultrawide monitor probably
       x = y * EXPECTED_DISP_RATIO;
-    }
-    else if(actual_ratio < EXPECTED_DISP_RATIO) { // 4:3 or 16:10 monitor probably
+    } else if (actual_ratio < EXPECTED_DISP_RATIO) {  // 4:3 or 16:10 monitor probably
       y = x / EXPECTED_DISP_RATIO;
     }
 
@@ -153,7 +154,7 @@ struct DrawTool {
     double prj_x = center_x + (units * x);
     double prj_y = center_y + (units * y);
     double front_scale = units * scale;
-    
+
     // TODO: scale text off screen resolution
     DrawTextParams params{Text, color_white, prj_x, prj_y, font, front_scale, false};
 
@@ -206,25 +207,20 @@ void DebugPrintState(const PlayerState& f) {
 
 struct FrameState {
   struct FrameInfo {
-    FLinearColor color_one;
-    FLinearColor color_two;
-    int trunc_one = 0;
-    int trunc_two = 0;
+    FLinearColor color;
+    int trunc = 0;
   };
-  FrameInfo segments[FRAME_SEGMENTS];
-
-  PlayerState previous_state_one;
-  PlayerState previous_state_two;
-  PlayerState current_state_one;
-  PlayerState current_state_two;
+  struct MoveStats {
+    int startup = 0;
+    int active = 0;
+    int recovery = 0;
+  };
+  std::pair<FrameInfo, FrameInfo> segments[FRAME_SEGMENTS];
+  std::pair<MoveStats, MoveStats> stats;
+  std::pair<PlayerState, PlayerState> previous_state;
+  std::pair<PlayerState, PlayerState> current_state;
 
   // last move stats
-  int startup_one = 0;
-  int active_one = 0;
-  int recovery_one = 0;
-  int startup_two = 0;
-  int active_two = 0;
-  int recovery_two = 0;
   int advantage = 0;
 
   bool active = false;
@@ -233,42 +229,69 @@ struct FrameState {
   FrameState() { resetFrames(); }
 
   void resetFrames() {
+    advantage = 0;
     current_segment_idx = 0;
-    current_state_one.state_time = 1;
-    current_state_two.state_time = 1;
-    previous_state_one.state_time = 1;
-    previous_state_two.state_time = 1;
-    startup_one = 0;
-    active_one = 0;
-    recovery_one = 0;
-    startup_two = 0;
-    active_two = 0;
-    recovery_two = 0;
+    current_state.first.state_time = 1;
+    current_state.second.state_time = 1;
+    previous_state.first.state_time = 1;
+    previous_state.second.state_time = 1;
+    stats = std::make_pair(MoveStats(), MoveStats());
     for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
-      segments[idx] = FrameInfo();
+      segments[idx] = std::make_pair(FrameInfo(), FrameInfo());
+    }
+  }
+
+  void updateActiveSection(int current_time, int previous_time, PlayerStateType type, FrameInfo& active, FrameInfo& previous) {
+    // previous section has ended
+    previous.trunc = 0;
+
+    if (current_time == 1) {
+      DEBUG_PRINT(STR("New Section for One\n"));
+      active.color = state_colors[type];
+      // ... and was long enough that we want to print length
+      if (previous_time > COMBO_NUM_TIME) {
+        DEBUG_PRINT(STR("Last section requires truncating\n"));
+        previous.trunc = previous_time;
+      }
+    } else {
+      DEBUG_PRINT(STR("Same Section for One\n"));
+      // we are drawing this section, fade its color slightly
+      // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
+      active.color = previous.color * COLOR_DECAY;
+    }
+  }
+  void updateStats(const PlayerState& state, MoveStats& stats) {
+    if (!state.canact) {
+      if (!state.hit_stunned && !state.block_stunned) {
+        if (state.active) {
+          stats.active = state.state_time;
+        } else if (state.recovery) {
+          stats.recovery = state.state_time;
+        } else {
+          stats.startup = state.state_time;
+        }
+      }
     }
   }
 
   void addFrame(asw_player& player_one, asw_player& player_two, bool player_one_proj, bool player_two_proj) {
     // update states
-    if (!current_state_one.hitstop && !current_state_two.hitstop) {
-      previous_state_one = current_state_one;
-      previous_state_two = current_state_two;
+    if (!current_state.first.hitstop && !current_state.second.hitstop) {
+      previous_state.first = current_state.first;
+      previous_state.second = current_state.second;
     }
-    current_state_one = PlayerState(player_one, previous_state_one, player_one_proj);
-    current_state_two = PlayerState(player_two, previous_state_two, player_two_proj);
+    current_state.first = PlayerState(player_one, previous_state.first, player_one_proj);
+    current_state.second = PlayerState(player_two, previous_state.second, player_two_proj);
 
-    auto type_one = current_state_one.getType();
-    auto type_two = current_state_two.getType();
-    auto time_one = current_state_one.state_time;
-    auto time_two = current_state_two.state_time;
+    auto type_one = current_state.first.getType();
+    auto type_two = current_state.second.getType();
 
     // end combo if we've been idle for a long time
     if (type_one == PST_Idle && type_two == PST_Idle) {
       if (!active) {
         return;
       }
-      if (time_one > COMBO_ENDED_TIME && time_two > COMBO_ENDED_TIME) {
+      if (current_state.first.state_time > COMBO_ENDED_TIME && current_state.second.state_time > COMBO_ENDED_TIME) {
         DEBUG_PRINT(STR("Combo ended\n"));
         active = false;
         return;
@@ -281,47 +304,26 @@ struct FrameState {
     }
 
     DEBUG_PRINT(STR("Frame {}\n"), current_segment_idx);
-    DebugPrintState(current_state_one);
-    DebugPrintState(current_state_two);
+    DebugPrintState(current_state.first);
+    DebugPrintState(current_state.second);
 
     // ignore hitstop time
-    if (current_state_one.hitstop || current_state_two.hitstop) {
+    if (current_state.first.hitstop || current_state.second.hitstop) {
       DEBUG_PRINT(STR("Skipping Hitstop\n"));
       return;
     }
 
     // update move info
-    if (!current_state_one.canact) {
-      if (!current_state_one.hit_stunned && !current_state_one.block_stunned) {
-        if (current_state_one.active) {
-          active_one = current_state_one.state_time;
-        } else if (current_state_one.recovery) {
-          recovery_one = current_state_one.state_time;
-        } else {
-          startup_one = current_state_one.state_time;
-        }
-      }
-    }
-
-    if (!current_state_two.canact) {
-      if (!current_state_two.hit_stunned && !current_state_two.block_stunned) {
-        if (current_state_two.active) {
-          active_two = current_state_two.state_time;
-        } else if (current_state_two.recovery) {
-          recovery_two = current_state_two.state_time;
-        } else {
-          startup_two = current_state_two.state_time;
-        }
-      }
-    }
+    updateStats(current_state.first, stats.first);
+    updateStats(current_state.second, stats.second);
 
     // update advantage
-    if (current_state_one.canact) {
-      if (!current_state_two.canact) {
+    if (current_state.first.canact) {
+      if (!current_state.second.canact) {
         ++advantage;
       }
     } else {
-      if (current_state_two.canact) {
+      if (current_state.second.canact) {
         --advantage;
       } else {
         advantage = 0;
@@ -338,57 +340,25 @@ struct FrameState {
       auto& prev_segment = segments[(current_segment_idx + FRAME_SEGMENTS - 1) % FRAME_SEGMENTS];
 
       // we are truncating, update truncated
-      if (time_one > COMBO_TRUNC_TIME && time_two > COMBO_TRUNC_TIME) {
-        prev_segment.trunc_one = time_one;
-        prev_segment.trunc_two = time_two;
+      if (current_state.first.state_time > COMBO_TRUNC_TIME && current_state.second.state_time > COMBO_TRUNC_TIME) {
+        prev_segment.first.trunc = current_state.first.state_time;
+        prev_segment.second.trunc = current_state.second.state_time;
         DEBUG_PRINT(STR("Truncating 1:{}, 2:{}\n"), prev_segment.trunc_one, prev_segment.trunc_two);
         return;
       }
 
-      // if we were truncating, we aren't anymore
-      prev_segment.trunc_one = 0;
-      prev_segment.trunc_two = 0;
-
-      // previous section has ended
-      if (time_one == 1) {
-        DEBUG_PRINT(STR("New Section for One\n"));
-        active_segment.color_one = state_colors[type_one];
-        // ... and was long enough that we want to print length
-        if (previous_state_one.state_time > COMBO_NUM_TIME) {
-          DEBUG_PRINT(STR("Last section requires truncating\n"));
-          prev_segment.trunc_one = previous_state_one.state_time;
-        }
-      } else {
-        DEBUG_PRINT(STR("Same Section for One\n"));
-        // we are drawing this section, fade its color slightly
-        // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
-        active_segment.color_one = prev_segment.color_one * COLOR_DECAY;
-      }
-
-      if (time_two == 1) {
-        DEBUG_PRINT(STR("New Section for Two\n"));
-        active_segment.color_two = state_colors[type_two];
-        // ... and was long enough that we want to print length
-        if (previous_state_two.state_time > COMBO_NUM_TIME) {
-          DEBUG_PRINT(STR("Last section requires truncating\n"));
-          prev_segment.trunc_two = previous_state_two.state_time;
-        }
-      } else {
-        DEBUG_PRINT(STR("Same Section for Two\n"));
-        // we are drawing this section, fade its color slightly
-        // active_segment.color_two = state_colors[type_two] * COLOR_DECAY;
-        active_segment.color_two = prev_segment.color_two * COLOR_DECAY;
-      }
+      updateActiveSection(current_state.first.state_time, previous_state.first.state_time, type_one, active_segment.first, prev_segment.first);
+      updateActiveSection(current_state.second.state_time, previous_state.second.state_time, type_two, active_segment.second, prev_segment.second);
     } else {
       DEBUG_PRINT(STR("Was not Active\n"));
-      active_segment.color_one = state_colors[type_one];
-      active_segment.color_two = state_colors[type_two];
+      active_segment.first.color = state_colors[type_one];
+      active_segment.second.color = state_colors[type_two];
     }
 
     // fade effect, clear segments near tail
     auto& fade_segment = segments[(current_segment_idx + FADE_DISTANCE) % FRAME_SEGMENTS];
-    fade_segment.color_one.A = 0.f;
-    fade_segment.color_two.A = 0.f;
+    fade_segment.first.color.A = 0.f;
+    fade_segment.second.color.A = 0.f;
 
     // advance to next segment
     if (++current_segment_idx >= FRAME_SEGMENTS) {
@@ -411,34 +381,20 @@ void initFrames(const GetSizeParams& sizedata, RC::Unreal::UFunction* drawrect, 
   tool = DrawTool(sizedata, drawrect, drawtext, fontobject);
 }
 
-void updateSize(const GetSizeParams& sizedata) {
-  tool.updateSize(sizedata);
-}
-
 void addFrame() {
-
   const auto engine = asw_engine::get();
   if (!engine) return;
 
   asw_player* player_one = engine->players[0].entity;
   asw_player* player_two = engine->players[1].entity;
-  if(!player_one || !player_two) return;
+  if (!player_one || !player_two) return;
 
-  bool player_one_proj = false;
-  bool player_two_proj = false;
+  bool player_one_proj = false, player_two_proj = false;
   for (int idx = 0; idx < engine->entity_count; ++idx) {
-    const auto* focus = engine->entities[idx];
-    if (focus == player_one || focus == player_two) continue;
+    const auto *focus = engine->entities[idx], *parent = focus->parent_obj;
 
-    if (focus->parent_obj == player_one) {
-      if (focus->is_active()) {
-        player_one_proj = true;
-      }
-    } else if (focus->parent_obj == player_two) {
-      if (focus->is_active()) {
-        player_two_proj = true;
-      }
-    }
+    player_one_proj |= (parent == player_one && focus->is_active());
+    player_two_proj |= (parent == player_two && focus->is_active());
   }
 
   state_data.addFrame(*player_one, *player_two, player_one_proj, player_two_proj);
@@ -446,18 +402,30 @@ void addFrame() {
 
 void resetFrames() {
   state_data.active = false;
-  state_data.current_state_one = PlayerState();
-  state_data.current_state_two = PlayerState();
+  state_data.current_state.first = PlayerState();
+  state_data.current_state.second = PlayerState();
 }
 
-void drawFrames(RC::Unreal::UObject* hud) {
-  tool.hud_actor = hud;
-  if (!tool.drawrect_func) {
-    throw std::runtime_error("DrawTool was unitialized");
+void drawFrame(const FrameState::FrameInfo& info, int top, int left) {
+  if (info.color.A != 0.f) {
+    tool.drawRect(left, top, SEG_WIDTH, SEG_HEIGHT, info.color);
+    if (info.trunc > 0) {
+      auto text = std::to_wstring(info.trunc);
+      int text_left = left - (text.size() - 1) * 8 + 1;
+      tool.drawText(text_left, top, text, BAR_TEXT_SIZE);
+    }
   }
+}
 
-  auto player_one_info = std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", state_data.startup_one, state_data.active_one, state_data.recovery_one, state_data.advantage);
-  auto player_two_info = std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", state_data.startup_two, state_data.active_two, state_data.recovery_two, -state_data.advantage);
+std::wstring MakeStatsText(const FrameState::MoveStats& stats, int advantage) {
+  return std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", stats.startup, stats.active, stats.recovery, advantage);
+}
+
+void drawFrames(RC::Unreal::UObject* hud, const GetSizeParams& sizedata) {
+  tool.update(sizedata, hud);
+
+  auto player_one_info = MakeStatsText(state_data.stats.first, state_data.advantage);
+  auto player_two_info = MakeStatsText(state_data.stats.second, state_data.advantage);
 
   tool.drawText(BAR_LEFT, INFO_ONE_LOC, player_one_info, BAR_TEXT_SIZE);
   tool.drawText(BAR_LEFT, INFO_TWO_LOC, player_two_info, BAR_TEXT_SIZE);
@@ -467,24 +435,10 @@ void drawFrames(RC::Unreal::UObject* hud) {
 
   for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
     int left = BAR_LEFT + (SEG_TOTAL * idx) + SEG_SPACING;
-    const auto& info = state_data.segments[idx];
+    const auto& segment = state_data.segments[idx];
 
-    if (info.color_one.A != 0.f) {
-      tool.drawRect(left, SEGS_ONE_TOP, SEG_WIDTH, SEG_HEIGHT, info.color_one);
-      if (info.trunc_one > 0) {
-        auto text = std::to_wstring(info.trunc_one);
-        int text_left = left - (text.size() - 1) * 8 + 1;
-        tool.drawText(text_left, SEGS_ONE_TOP, text, BAR_TEXT_SIZE);
-      }
-    }
-    if (info.color_two.A != 0.f) {
-      tool.drawRect(left, SEGS_TWO_TOP, SEG_WIDTH, SEG_HEIGHT, info.color_two);
-      if (info.trunc_two > 0) {
-        auto text = std::to_wstring(info.trunc_two);
-        int text_left = left - (text.size() - 1) * 8 + 1;
-        tool.drawText(text_left, SEGS_TWO_TOP, text, BAR_TEXT_SIZE);
-      }
-    }
+    drawFrame(segment.first, SEGS_ONE_TOP, left);
+    drawFrame(segment.second, SEGS_TWO_TOP, left);
   }
 }
 

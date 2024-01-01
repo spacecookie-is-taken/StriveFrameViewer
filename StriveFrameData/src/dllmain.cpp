@@ -280,8 +280,7 @@ class UeTracker {
     if (!isValid()) return;
     if (hud_actor == validate_hud) {
       player_actor->ProcessEvent(getsize_func, &SizeData);
-      updateSize(SizeData);
-      drawFrames(hud_actor);
+      drawFrames(hud_actor, SizeData);
     } else {
       RC::Output::send<LogLevel::Warning>(STR("Resetting: HUD actor expired \n"));
       reset();
@@ -342,7 +341,7 @@ class StriveFrameData : public CppUserModBase {
   StriveFrameData()
   : CppUserModBase() {
     ModName = STR("Strive Frame Data");
-    ModVersion = STR("1.03");
+    ModVersion = STR("1.04");
     ModDescription = STR("A tool to display frame advantage.");
     ModAuthors = STR("pbozai");
     UpdateBattle_Detour = nullptr;
