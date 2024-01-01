@@ -415,8 +415,33 @@ void updateSize(const GetSizeParams& sizedata) {
   tool.updateSize(sizedata);
 }
 
-void addFrame(asw_player& player_one, asw_player& player_two, bool player_one_proj, bool player_two_proj) {
-  state_data.addFrame(player_one, player_two, player_one_proj, player_two_proj);
+void addFrame() {
+
+  const auto engine = asw_engine::get();
+  if (!engine) return;
+
+  asw_player* player_one = engine->players[0].entity;
+  asw_player* player_two = engine->players[1].entity;
+  if(!player_one || !player_two) return;
+
+  bool player_one_proj = false;
+  bool player_two_proj = false;
+  for (int idx = 0; idx < engine->entity_count; ++idx) {
+    const auto* focus = engine->entities[idx];
+    if (focus == player_one || focus == player_two) continue;
+
+    if (focus->parent_obj == player_one) {
+      if (focus->is_active()) {
+        player_one_proj = true;
+      }
+    } else if (focus->parent_obj == player_two) {
+      if (focus->is_active()) {
+        player_two_proj = true;
+      }
+    }
+  }
+
+  state_data.addFrame(*player_one, *player_two, player_one_proj, player_two_proj);
 }
 
 void resetFrames() {
