@@ -2,6 +2,7 @@
 #include "sigscan.h"
 #include "arcsys.h"
 #include "drawing.h"
+#include "bind_watcher.h"
 
 #include <UE4SSProgram.hpp>
 #include <UnrealDef.hpp>
@@ -228,11 +229,6 @@ UE4SSProgram* Program;
 bool in_allowed_mode = false;
 bool MatchStartFlag = false;
 bool renderingHooked = false;
-bool ShouldUpdateBattle = true;
-bool ShouldAdvanceBattle = false;
-bool f2_pressed = false;
-bool f3_pressed = false;
-bool f4_pressed = false;
 
 std::vector<int> allowed_modes = {GAME_MODE_TRAINING, GAME_MODE_REPLAY};
 int last_mode = GAME_MODE_DEBUG_BATTLE;
@@ -247,6 +243,39 @@ int cfg_resetButton = 7;
 /* Functions */
 
 // Utilities
+class AsyncInputChecker {
+  int pauseButton = VK_F2;
+  int advanceButton = VK_F2;
+  bool isPaused = false;
+  bool shouldAdvance = false;
+
+  void checkBinds(bool await = false) {
+    auto inputs = BindWatcherI::getInputs(await);
+    for (const auto& input : inputs) {
+      if(input == pauseButton){
+        pauseButton = !pauseButton;
+      }
+      else if(input == advanceButton){
+        shouldAdvance = true;
+      }
+    }
+  }
+public:
+  void pause(){
+    checkBinds();
+    while (isPaused && !shouldAdvance) {
+      checkBinds(true);
+    }
+  }
+  void finishAdvance(){
+    shouldAdvance = false;
+  }
+  void reset(){
+    isPaused = false;
+    shouldAdvance = false;
+  }
+} input_checker;
+
 void getInputNames() {
   RC::Output::send<LogLevel::Warning>(STR("Actor Pointer: {}\n"), (void*)player_actor);
   if (!player_actor) return;
@@ -398,12 +427,10 @@ void initRenderHooks() {
   const auto** AHUD_vtable = (const void**)get_rip_relative(sigscan::get().scan("\x48\x8D\x05\x00\x00\x00\x00\xC6\x83\x18\x03", "xxx????xxxx") + 3);
   orig_AHUDPostRender = (funcAHUDPostRender_t)vtable_hook(AHUD_vtable, 214, hook_AHUDPostRender);
 }
-
 // Hooks
 void hook_MatchStart(AREDGameState_Battle* GameState) {
   MatchStartFlag = true;
-  ShouldAdvanceBattle = false;
-  ShouldUpdateBattle = true;
+  input_checker.reset();
 
   // reset unreal pointers
   input_actor = nullptr;
@@ -428,6 +455,7 @@ void hook_AHUDPostRender(void* hud) {
       hud_actor = nullptr;
     }
   }
+  input_checker.pause();
 }
 void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
   if (!GameCommon) {
@@ -446,119 +474,100 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     return;
   }
 
-  if (GetAsyncKeyState(VK_F2) & 0x8000) {
-    if (!f2_pressed) {
-      ShouldUpdateBattle = !ShouldUpdateBattle;
-      f2_pressed = true;
-    }
-  } else {
-    f2_pressed = false;
+  // testEventList();
+  if (checkForReset()) {
+    resetFrames();
   }
-  if (GetAsyncKeyState(VK_F3) & 0x8000) {
-    if (!f3_pressed) {
-      ShouldAdvanceBattle = true;
-      f3_pressed = true;
-    }
-  } else {
-    f3_pressed = false;
+  orig_UpdateBattle(GameState, DeltaTime);
+  input_checker.finishAdvance();
+
+  const auto engine = asw_engine::get();
+  if (!engine) return;
+
+  asw_player* player_one = engine->players[0].entity;
+  asw_player* player_two = engine->players[1].entity;
+
+  if (MatchStartFlag) {
+    MatchStartFlag = false;
+    initRenderHooks();
+
+    // test to try and grab input mappings
+    // getInputNames();
   }
 
-  if (ShouldUpdateBattle || ShouldAdvanceBattle) {
-    //testEventList();
-    if (checkForReset()) {
-      resetFrames();
-    }
-    orig_UpdateBattle(GameState, DeltaTime);
-    ShouldAdvanceBattle = false;
-
-    const auto engine = asw_engine::get();
-    if (!engine) return;
-
-    asw_player* player_one = engine->players[0].entity;
-    asw_player* player_two = engine->players[1].entity;
-
-    if (MatchStartFlag) {
-      MatchStartFlag = false;
-      initRenderHooks();
-
-      // test to try and grab input mappings
-      // getInputNames();
-    }
-
-    /* Get pause state */
+  /* Get pause state */
 #if 1
-    bool paused = false;
-    if (paused_prop) {
-      Unreal::AActor** val = static_cast<Unreal::AActor**>(paused_prop->ContainerPtrToValuePtr<void>(worldsets_actor));
-      if (val) {
-        paused = (*val != nullptr);
-        // RC::Output::send<LogLevel::Warning>(STR("Paused: {}\n"), (void*)(*val));
-      }
+  bool paused = false;
+  if (paused_prop) {
+    Unreal::AActor** val = static_cast<Unreal::AActor**>(paused_prop->ContainerPtrToValuePtr<void>(worldsets_actor));
+    if (val) {
+      paused = (*val != nullptr);
+      // RC::Output::send<LogLevel::Warning>(STR("Paused: {}\n"), (void*)(*val));
     }
-    if (was_paused != paused) {
-      RC::Output::send<LogLevel::Warning>(STR("Paused: {}\n"), paused);
-      was_paused = paused;
-    }
+  }
+  if (was_paused != paused) {
+    RC::Output::send<LogLevel::Warning>(STR("Paused: {}\n"), paused);
+    was_paused = paused;
+  }
 #endif
 
 #if 0
-    /* Get input state */
-    if (input_actor && press_func) {
-      for (int idx = 0; idx < ButtonCount; ++idx) {
-        InputParamData& queried_key = *ButtonData[idx];
-        input_actor->ProcessEvent(press_func, &queried_key);
-        ButtonStates[idx] = queried_key.was_pressed;
-        if (ButtonStates[idx] && ConfigureResetButton) {
-          cfg_resetButton = idx;
-          ConfigureResetButton = false;
-        }
+  /* Get input state */
+  if (input_actor && press_func) {
+    for (int idx = 0; idx < ButtonCount; ++idx) {
+      InputParamData& queried_key = *ButtonData[idx];
+      input_actor->ProcessEvent(press_func, &queried_key);
+      ButtonStates[idx] = queried_key.was_pressed;
+      if (ButtonStates[idx] && ConfigureResetButton) {
+        cfg_resetButton = idx;
+        ConfigureResetButton = false;
       }
     }
+  }
 #endif
 
 #ifdef ENABLE_UPDATE_SCANNING  // utility to force scan for new offsets of asw_player after an update
-    const uint32_t* scan_root = (uint32_t*)((char*)player_one + SCAN_START);
-    for (int i = 0; i < SCAN_SIZE; ++i) {
-      if (i == 62 || i == 63) continue;
-      auto& last_val = SCAN_RANGE[i];
-      auto& next_val = *(scan_root + i);
-      if (last_val != next_val) {
-        RC::Output::send<LogLevel::Warning>(STR("CHANGE: {}, {} -> {}\n"), i, last_val, next_val);
-        last_val = next_val;
-      }
+  const uint32_t* scan_root = (uint32_t*)((char*)player_one + SCAN_START);
+  for (int i = 0; i < SCAN_SIZE; ++i) {
+    if (i == 62 || i == 63) continue;
+    auto& last_val = SCAN_RANGE[i];
+    auto& next_val = *(scan_root + i);
+    if (last_val != next_val) {
+      RC::Output::send<LogLevel::Warning>(STR("CHANGE: {}, {} -> {}\n"), i, last_val, next_val);
+      last_val = next_val;
     }
+  }
 #endif
 
-    // scan for player owned entities that are active projectiles
-    bool player_one_proj = false;
-    bool player_two_proj = false;
-    for (int idx = 0; idx < engine->entity_count; ++idx) {
-      const auto* focus = engine->entities[idx];
-      if (focus == player_one || focus == player_two) continue;
+  // scan for player owned entities that are active projectiles
+  bool player_one_proj = false;
+  bool player_two_proj = false;
+  for (int idx = 0; idx < engine->entity_count; ++idx) {
+    const auto* focus = engine->entities[idx];
+    if (focus == player_one || focus == player_two) continue;
 
-      if (focus->parent_obj == player_one) {
-        if (focus->is_active()) {
-          player_one_proj = true;
-        }
-      } else if (focus->parent_obj == player_two) {
-        if (focus->is_active()) {
-          player_two_proj = true;
-        }
+    if (focus->parent_obj == player_one) {
+      if (focus->is_active()) {
+        player_one_proj = true;
+      }
+    } else if (focus->parent_obj == player_two) {
+      if (focus->is_active()) {
+        player_two_proj = true;
       }
     }
+  }
 
-    /* Update Frame Data */
-    // sometimes the reset doesn't fully take effect for a few frames, this prevents combo data from "bleeding" over
-    if (!paused) {
-      addFrame(*player_one, *player_two, player_one_proj, player_two_proj);
-    }
+  /* Update Frame Data */
+  // sometimes the reset doesn't fully take effect for a few frames, this prevents combo data from "bleeding" over
+  if (!paused) {
+    addFrame(*player_one, *player_two, player_one_proj, player_two_proj);
+  }
 
-    /* Update Screen Size */
-    if (getsize_func) {
-      player_actor->ProcessEvent(getsize_func, &SizeData);
-      // RC::Output::send<LogLevel::Warning>(STR("Screen Size: {} {}\n"), SizeData.SizeX, SizeData.SizeY);
-      updateSize(SizeData);
-    }
+  /* Update Screen Size */
+  if (getsize_func) {
+    player_actor->ProcessEvent(getsize_func, &SizeData);
+    // RC::Output::send<LogLevel::Warning>(STR("Screen Size: {} {}\n"), SizeData.SizeX, SizeData.SizeY);
+    updateSize(SizeData);
   }
 }
 
@@ -621,6 +630,9 @@ class StriveFrameData : public CppUserModBase {
 
     ASWInitFunctions();
     bbscript::BBSInitializeFunctions();
+
+    BindWatcherI::addToFilter(VK_F2);
+    BindWatcherI::addToFilter(VK_F3);
   }
 };
 
