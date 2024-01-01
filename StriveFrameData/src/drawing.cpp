@@ -16,16 +16,16 @@ constexpr int COMBO_ENDED_TIME = 20;  // time idle before combo is considered ov
 constexpr int COMBO_NUM_TIME = 5;     // minimum time of unchanging states to display state length
 constexpr int COMBO_TRUNC_TIME = 10;  // max segments for unchanging state, after which the segments are truncated
 constexpr double COLOR_DECAY = 0.9f;
-constexpr double BAR_TEXT_SIZE = 0.7;
+constexpr double BAR_TEXT_SIZE = 1.4;
 
 /* Unprojected coordinate Display Settings */
 constexpr int FRAME_SEGMENTS = 120;
 constexpr int FADE_DISTANCE = 5;
-constexpr int SEG_WIDTH = 10;
-constexpr int SEG_HEIGHT = 18;
-constexpr int SEG_SPACING = 2;
-constexpr int BAR_SPACING = 4;
-constexpr int BORDER_THICKNESS = 2;
+constexpr int SEG_WIDTH = 20;
+constexpr int SEG_HEIGHT = 36;
+constexpr int SEG_SPACING = 4;
+constexpr int BAR_SPACING = 8;
+constexpr int BORDER_THICKNESS = 3;
 
 constexpr int SEG_TOTAL = SEG_SPACING + SEG_WIDTH;
 constexpr int BAR_WIDTH = (FRAME_SEGMENTS * SEG_TOTAL) + SEG_SPACING;
@@ -52,7 +52,7 @@ constexpr int INFO_TWO_LOC = BAR_TWO_BOTTOM + 2;
 
 /* Projected Display Settings */
 constexpr double EXPECTED_DISP_RATIO = 16.0 / 9.0;
-constexpr double PROJECTED_RATIO = 0.0006f;
+constexpr double PROJECTED_RATIO = 0.0003f;
 constexpr double CENTER_X_RATIO = 0.5f;
 constexpr double CENTER_Y_RATIO = 0.8f;
 
@@ -90,7 +90,7 @@ struct DrawTextParams {
 /* Unreal Constants */
 FLinearColor color_invisible{1.f, 1.f, 1.f, 0.f};
 FLinearColor color_white{1.f, 1.f, 1.f, 1.f};
-FLinearColor color_purple{0.59f, 0.19f, 0.78f, 1.f};
+FLinearColor projectile_color{.8f, .1f, .1f, 1.f};
 FLinearColor background_color{0.05f, 0.05f, 0.05f, 0.7f};
 static const FLinearColor state_colors[] = {
     FLinearColor{.2f, .2f, .2f, .9f},  // Gray
@@ -277,7 +277,7 @@ struct FrameState {
       // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
       active.color = previous.color * COLOR_DECAY;
     }
-    active.border = state.projectile_active ? color_purple : color_invisible;
+    active.border = state.projectile_active ? projectile_color : color_invisible;
   }
   void updateStats(const PlayerState& state, MoveStats& stats) {
     if (state.type == PST_Attacking) {
@@ -364,9 +364,9 @@ struct FrameState {
     } else {
       DEBUG_PRINT(STR("Was not Active\n"));
       active_segment.first.color = state_colors[current_state.first.type];
-      active_segment.first.border = current_state.first.projectile_active ? color_purple : color_invisible;
+      active_segment.first.border = current_state.first.projectile_active ? projectile_color : color_invisible;
       active_segment.second.color = state_colors[current_state.second.type];
-      active_segment.second.border = current_state.second.projectile_active ? color_purple : color_invisible;
+      active_segment.second.border = current_state.second.projectile_active ? projectile_color : color_invisible;
     }
 
     // fade effect, clear segments near tail
@@ -429,7 +429,7 @@ void drawFrame(const FrameState::FrameInfo& info, int top, int left) {
     tool.drawRect(left, top, SEG_WIDTH, SEG_HEIGHT, info.color);
     if (info.trunc > 0) {
       auto text = std::to_wstring(info.trunc);
-      int text_left = left - (text.size() - 1) * 8 + 1;
+      int text_left = left - (text.size() - 1) * 16 + 2;
       tool.drawText(text_left, top, text, BAR_TEXT_SIZE);
     }
   }
@@ -443,7 +443,7 @@ void drawFrames(RC::Unreal::UObject* hud, const GetSizeParams& sizedata) {
   tool.update(sizedata, hud);
 
   auto player_one_info = MakeStatsText(state_data.stats.first, state_data.advantage);
-  auto player_two_info = MakeStatsText(state_data.stats.second, state_data.advantage);
+  auto player_two_info = MakeStatsText(state_data.stats.second, -state_data.advantage);
 
   tool.drawText(BAR_LEFT, INFO_ONE_LOC, player_one_info, BAR_TEXT_SIZE);
   tool.drawText(BAR_LEFT, INFO_TWO_LOC, player_two_info, BAR_TEXT_SIZE);
@@ -458,8 +458,4 @@ void drawFrames(RC::Unreal::UObject* hud, const GetSizeParams& sizedata) {
     drawFrame(segment.first, SEGS_ONE_TOP, left);
     drawFrame(segment.second, SEGS_TWO_TOP, left);
   }
-}
-
-void drawConfigure() {
-  tool.drawText(-60, SEGS_ONE_TOP - 40, L"Configuring reset input", 1.2);
 }
