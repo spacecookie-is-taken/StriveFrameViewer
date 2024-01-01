@@ -217,40 +217,6 @@ public:
   }
 } input_checker;
 
-void getInputNames() {
-  RC::Output::send<LogLevel::Warning>(STR("Actor Pointer: {}\n"), (void*)player_actor);
-  if (!player_actor) return;
-  char* input_pointer_pointer = (char*)player_actor + 0x350;
-  char* input_pointer = *((char**)input_pointer_pointer);
-  RC::Output::send<LogLevel::Warning>(STR("Input Pointer: {}\n"), (void*)input_pointer);
-  if (!input_pointer) return;
-  char* array_pointer = input_pointer + 0x140;
-  RC::Output::send<LogLevel::Warning>(STR("Iterating Inputs\n"));
-  TArray<ActionKeyMapping>& array = *((TArray<ActionKeyMapping>*)array_pointer);
-  for (auto& x : array) {
-    RC::Output::send<LogLevel::Warning>(STR("Input: {}, Key: {}\n"), x.ActionName.ToString(), x.Key.KeyName.ToString());
-  }
-}
-void testEventList() {
-  auto* events = asw_events::get();
-  if (!events) return;
-  auto count = events->event_count;
-  if (count == 0) return;
-  RC::Output::send<LogLevel::Warning>(STR("Event Count: {}\n"), count);
-  if (count > 10) {
-    count = 10;
-  }
-  for (unsigned int idx = 0; idx < count; ++idx) {
-    auto& event = events->events[idx];
-    unsigned int type = event.type;
-    if (type < 0 || type > BOM_EVENT_MAX) {
-      RC::Output::send<LogLevel::Warning>(STR("Event {}: OOB {}\n"), idx, type);
-    } else {
-      auto* name = BomEventNames[type];
-      RC::Output::send<LogLevel::Warning>(STR("Event {}: {}\n"), idx, name);
-    }
-  }
-}
 bool checkForReset() {
   auto* events = asw_events::get();
   auto count = events->event_count;
@@ -405,7 +371,6 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     return;
   }
 
-  // testEventList();
   if (checkForReset()) {
     resetFrames();
   }
@@ -421,9 +386,6 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
   if (MatchStartFlag) {
     MatchStartFlag = false;
     initRenderHooks();
-
-    // test to try and grab input mappings
-    // getInputNames();
   }
 
   /* Get pause state */
@@ -514,6 +476,7 @@ class StriveFrameData : public CppUserModBase {
       ImGui::Checkbox("Enable Overlay", &cfg_overlayEnabled);
       // ImGui::Checkbox("Enable Truncation", &cfg_truncEnabled);
       // ImGui::Checkbox("Show Dustloop Style Timings", &cfg_dustloopEnabled);
+      // ImGui::Checkbox("Enable Fade Effect", &cfg_fadeEnabled);
       // Input Selector for reset button
       // Input Selector for pause gameplay
       // Input Selector for advance gameplay by a frame
