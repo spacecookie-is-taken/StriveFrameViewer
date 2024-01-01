@@ -245,7 +245,7 @@ int cfg_resetButton = 7;
 // Utilities
 class AsyncInputChecker {
   int pauseButton = VK_F2;
-  int advanceButton = VK_F2;
+  int advanceButton = VK_F3;
   bool isPaused = false;
   bool shouldAdvance = false;
 
@@ -253,7 +253,7 @@ class AsyncInputChecker {
     auto inputs = BindWatcherI::getInputs(await);
     for (const auto& input : inputs) {
       if(input == pauseButton){
-        pauseButton = !pauseButton;
+        isPaused = !isPaused;
       }
       else if(input == advanceButton){
         shouldAdvance = true;
