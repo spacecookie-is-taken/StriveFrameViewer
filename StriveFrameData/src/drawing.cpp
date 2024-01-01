@@ -25,6 +25,7 @@ constexpr int SEG_WIDTH = 10;
 constexpr int SEG_HEIGHT = 18;
 constexpr int SEG_SPACING = 2;
 constexpr int BAR_SPACING = 4;
+constexpr int BORDER_THICKNESS = 2;
 
 constexpr int SEG_TOTAL = SEG_SPACING + SEG_WIDTH;
 constexpr int BAR_WIDTH = (FRAME_SEGMENTS * SEG_TOTAL) + SEG_SPACING;
@@ -87,8 +88,9 @@ struct DrawTextParams {
 };
 
 /* Unreal Constants */
-
+FLinearColor color_invisible{1.f, 1.f, 1.f, 0.f};
 FLinearColor color_white{1.f, 1.f, 1.f, 1.f};
+FLinearColor color_purple{0.59f, 0.19f, 0.78f, 1.f};
 FLinearColor background_color{0.05f, 0.05f, 0.05f, 0.7f};
 static const FLinearColor state_colors[] = {
     FLinearColor{.2f, .2f, .2f, .9f},  // Gray
@@ -162,44 +164,59 @@ class DrawTool {
   }
 };
 
-PlayerState::PlayerState()
-: canact(false)
-, block_stunned(false)
-, hit_stunned(false)
-, active(false)
-, time(-1)
-, recovery(false)
-, hitstop(false)
-, state_time(0)
-, inactive_time(0) {
-}
+enum PlayerStateType {
+  PST_Idle = 0,
+  PST_BlockStunned,
+  PST_HitStunned,
+  PST_Busy,
+  PST_Attacking,
+  PST_Recovering,
+  PST_None,
+  PST_End
+};
 
-PlayerState::PlayerState(asw_player& player, const PlayerState& last, bool proj_active)
-: canact(player.can_act())
-, block_stunned(player.is_in_blockstun() || player.is_stagger() || player.is_guard_crush())
-, hit_stunned(player.is_in_hitstun() || player.is_knockdown() || player.is_roll())
-, active(player.is_active() || proj_active) {
-  time = player.action_time;
-  recovery = ((last.active && !active) || last.recovery) && time >= last.time;
-  hitstop = active && (time == last.time);
-  if (last.getType() == getType()) {  //  && (getType() != PST_Busy || time > 1)
-    state_time = last.state_time + 1;
-    if (state_time > 1000) {
-      state_time = 1000;
+class PlayerState {
+  int time;
+
+ public:
+  bool projectile_active;
+  bool hitstop;
+  PlayerStateType type;
+  int state_time;
+
+  PlayerState()
+  : time(-1)
+  , projectile_active(false)
+  , hitstop(false)
+  , type(PST_Idle)
+  , state_time(0) {}
+
+  PlayerState(asw_player& player, const PlayerState& last, bool proj_active) {
+    bool canact = player.can_act();
+    bool block_stunned = player.is_in_blockstun() || player.is_stagger() || player.is_guard_crush();
+    bool hit_stunned = player.is_in_hitstun() || player.is_knockdown();
+    bool player_active = player.is_active();
+
+    time = player.action_time;
+    projectile_active = !player_active && proj_active;
+
+    bool recovery = time >= last.time && (last.type == PST_Recovering || (last.type == PST_Attacking && !player_active) || (!last.projectile_active && projectile_active));
+    hitstop = (time == last.time) && (player_active || projectile_active);
+
+    if (canact) type = PST_Idle;
+    else if (block_stunned) type = PST_BlockStunned;
+    else if (hit_stunned) type = PST_HitStunned;
+    else if (player_active) type = PST_Attacking;
+    else if (recovery) type = PST_Recovering;
+    else type = PST_Busy;
+
+    if (last.type == type && last.projectile_active == projectile_active) {
+      state_time = (last.state_time < 500) ? last.state_time + 1 : last.state_time;
+    } else {
+      state_time = 1;
     }
-  } else {
-    state_time = 1;
   }
-}
-
-PlayerStateType PlayerState::getType() const {
-  if (canact) return PST_Idle;
-  else if (block_stunned) return PST_BlockStunned;
-  else if (hit_stunned) return PST_HitStunned;
-  else if (active) return PST_Attacking;
-  else if (recovery) return PST_Recovering;
-  else return PST_Busy;
-}
+};
 
 void DebugPrintState(const PlayerState& f) {
   DEBUG_PRINT(STR("can:{}, bs:{}, hs:{}, act:{}, t:{}, r:{}, hit:{}, st:{}\n"), f.canact, f.block_stunned, f.hit_stunned, f.active, f.time, f.recovery, f.hitstop, f.state_time);
@@ -208,6 +225,7 @@ void DebugPrintState(const PlayerState& f) {
 struct FrameState {
   struct FrameInfo {
     FLinearColor color;
+    FLinearColor border;
     int trunc = 0;
   };
   struct MoveStats {
@@ -241,13 +259,13 @@ struct FrameState {
     }
   }
 
-  void updateActiveSection(int current_time, int previous_time, PlayerStateType type, FrameInfo& active, FrameInfo& previous) {
+  void updateActiveSection(const PlayerState& state, int previous_time, FrameInfo& active, FrameInfo& previous) {
     // previous section has ended
     previous.trunc = 0;
 
-    if (current_time == 1) {
+    if (state.state_time == 1) {
       DEBUG_PRINT(STR("New Section for One\n"));
-      active.color = state_colors[type];
+      active.color = state_colors[state.type];
       // ... and was long enough that we want to print length
       if (previous_time > COMBO_NUM_TIME) {
         DEBUG_PRINT(STR("Last section requires truncating\n"));
@@ -259,18 +277,15 @@ struct FrameState {
       // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
       active.color = previous.color * COLOR_DECAY;
     }
+    active.border = state.projectile_active ? color_purple : color_invisible;
   }
   void updateStats(const PlayerState& state, MoveStats& stats) {
-    if (!state.canact) {
-      if (!state.hit_stunned && !state.block_stunned) {
-        if (state.active) {
-          stats.active = state.state_time;
-        } else if (state.recovery) {
-          stats.recovery = state.state_time;
-        } else {
-          stats.startup = state.state_time;
-        }
-      }
+    if (state.type == PST_Attacking) {
+      stats.active = state.state_time;
+    } else if (state.type == PST_Recovering) {
+      stats.recovery = state.state_time;
+    } else if (state.type == PST_Busy) {
+      stats.startup = state.state_time;
     }
   }
 
@@ -283,11 +298,8 @@ struct FrameState {
     current_state.first = PlayerState(player_one, previous_state.first, player_one_proj);
     current_state.second = PlayerState(player_two, previous_state.second, player_two_proj);
 
-    auto type_one = current_state.first.getType();
-    auto type_two = current_state.second.getType();
-
     // end combo if we've been idle for a long time
-    if (type_one == PST_Idle && type_two == PST_Idle) {
+    if (current_state.first.type == PST_Idle && current_state.second.type == PST_Idle) {
       if (!active) {
         return;
       }
@@ -318,12 +330,12 @@ struct FrameState {
     updateStats(current_state.second, stats.second);
 
     // update advantage
-    if (current_state.first.canact) {
-      if (!current_state.second.canact) {
+    if (current_state.first.type == PST_Idle) {
+      if (!current_state.second.type == PST_Idle) {
         ++advantage;
       }
     } else {
-      if (current_state.second.canact) {
+      if (current_state.second.type == PST_Idle) {
         --advantage;
       } else {
         advantage = 0;
@@ -347,18 +359,21 @@ struct FrameState {
         return;
       }
 
-      updateActiveSection(current_state.first.state_time, previous_state.first.state_time, type_one, active_segment.first, prev_segment.first);
-      updateActiveSection(current_state.second.state_time, previous_state.second.state_time, type_two, active_segment.second, prev_segment.second);
+      updateActiveSection(current_state.first, previous_state.first.state_time, active_segment.first, prev_segment.first);
+      updateActiveSection(current_state.second, previous_state.second.state_time, active_segment.second, prev_segment.second);
     } else {
       DEBUG_PRINT(STR("Was not Active\n"));
-      active_segment.first.color = state_colors[type_one];
-      active_segment.second.color = state_colors[type_two];
+      active_segment.first.color = state_colors[current_state.first.type];
+      active_segment.first.border = current_state.first.projectile_active ? color_purple : color_invisible;
+      active_segment.second.color = state_colors[current_state.second.type];
+      active_segment.second.border = current_state.second.projectile_active ? color_purple : color_invisible;
     }
 
     // fade effect, clear segments near tail
     auto& fade_segment = segments[(current_segment_idx + FADE_DISTANCE) % FRAME_SEGMENTS];
     fade_segment.first.color.A = 0.f;
     fade_segment.second.color.A = 0.f;
+
 
     // advance to next segment
     if (++current_segment_idx >= FRAME_SEGMENTS) {
@@ -408,6 +423,9 @@ void resetFrames() {
 
 void drawFrame(const FrameState::FrameInfo& info, int top, int left) {
   if (info.color.A != 0.f) {
+    if (info.border.A != 0.f) {
+      tool.drawRect(left-BORDER_THICKNESS, top-BORDER_THICKNESS, SEG_WIDTH + 2*BORDER_THICKNESS, SEG_HEIGHT + 2*BORDER_THICKNESS, info.border);
+    }
     tool.drawRect(left, top, SEG_WIDTH, SEG_HEIGHT, info.color);
     if (info.trunc > 0) {
       auto text = std::to_wstring(info.trunc);
