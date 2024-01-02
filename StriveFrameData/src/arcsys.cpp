@@ -183,7 +183,7 @@ int asw_player::calc_advantage() {
   return opponent_disadvantage;
 }
 
-bool asw_player::is_in_hitstun() {
+bool asw_player::is_in_hitstun() const {
   switch (cur_cmn_action_id) {
     case ID_CmnActNokezoriHighLv1:
     case ID_CmnActNokezoriHighLv2:
@@ -264,7 +264,7 @@ bool asw_player::is_in_hitstun() {
   }
 }
 
-bool asw_player::is_in_blockstun() {
+bool asw_player::is_in_blockstun() const {
   switch (cur_cmn_action_id) {
     case ID_CmnActMidGuardPre:
     case ID_CmnActMidGuardLoop:
@@ -284,11 +284,11 @@ bool asw_player::is_in_blockstun() {
   }
 }
 
-bool asw_player::can_act() {
+bool asw_player::can_act() const {
   return enable_flag & ENABLE_NORMALATTACK;
 }
 
-bool asw_player::is_down_bound() {
+bool asw_player::is_down_bound() const {
   switch (cur_cmn_action_id) {
     case ID_CmnActBDownBound:
     case ID_CmnActFDownBound:
@@ -299,15 +299,15 @@ bool asw_player::is_down_bound() {
   }
 }
 
-bool asw_player::is_quick_down_1() {
+bool asw_player::is_quick_down_1() const {
   return cur_cmn_action_id == ID_CmnActQuickDown;
 }
 
-bool asw_player::is_quick_down_2() {
+bool asw_player::is_quick_down_2() const {
   return cur_cmn_action_id == ID_CmnActQuickDown2Stand;
 }
 
-bool asw_player::is_down_loop() {
+bool asw_player::is_down_loop() const {
   switch (cur_cmn_action_id) {
     case ID_CmnActBDownLoop:
     case ID_CmnActFDownLoop:
@@ -318,7 +318,7 @@ bool asw_player::is_down_loop() {
   }
 }
 
-bool asw_player::is_down_2_stand() {
+bool asw_player::is_down_2_stand() const {
   switch (cur_cmn_action_id) {
     case ID_CmnActBDown2Stand:
     case ID_CmnActFDown2Stand:
@@ -328,19 +328,19 @@ bool asw_player::is_down_2_stand() {
   }
 }
 
-bool asw_player::is_knockdown() {
+bool asw_player::is_knockdown() const {
   return is_down_bound() || is_quick_down_1() || is_quick_down_2() || is_down_loop() || is_down_2_stand();
 }
 
-bool asw_player::is_roll() {
+bool asw_player::is_roll() const {
   return cur_cmn_action_id == ID_CmnActKorogari;
 }
 
-bool asw_player::is_stagger() {
+bool asw_player::is_stagger() const {
   return cur_cmn_action_id == ID_CmnActJitabataLoop;
 }
 
-bool asw_player::is_guard_crush() {
+bool asw_player::is_guard_crush() const {
   switch (cur_cmn_action_id) {
     case ID_CmnActHajikareStand:
     case ID_CmnActHajikareCrouch:
@@ -351,6 +351,10 @@ bool asw_player::is_guard_crush() {
   }
 }
 
-bool asw_player::is_stunned() {
+bool asw_player::is_stunned() const {
   return is_in_hitstun() || is_in_blockstun() || is_knockdown() || is_roll() || is_stagger() || is_guard_crush();
+}
+
+bool asw_player::is_leo_stance() const {
+  return (enable_flag & ENABLE_BURST) && (cur_cmn_action_id == 4294967295);
 }

@@ -1,11 +1,11 @@
 # Strive Frame Viewer
 
-This is a fork of Ryn's Advantage viewer mod that allows you to see a SF6 style frame data display in training mode (and only training mode).
+This is a fork of Ryn's Advantage viewer mod that allows you to see a SF6 style frame data display in training mode (and only training mode). You can view the mod at https://gamebanana.com/mods/483661.
 
 ![image info](./docs/readme_banner.png)
 
 ## Installation
-Download the Frame Viewer zip file from releases, and extract the contents into the win64 directory of GGST.
+Download the Frame Viewer zip file from releases, and extract the contents into the win64 directory of GGST. If you are upgrading, delete the existing "cache" folder as it can cause issues if it is out of date.
 
 e.g. ```C:\Program Files (x86)\Steam\steamapps\common\GUILTY GEAR STRIVE\RED\Binaries\Win64```
 
@@ -19,6 +19,7 @@ Two bars along the bottom of the screen display a series of frames. The top bar 
 - <span style="color:yellow">Yellow</span>: the player is in an animation
 - <span style="color:red">Red</span>: the player has active hurtboxes
 - <span style="color:orange">Orange</span>: the player is in a recovery animation
+- <span style="color:red">Red Outline</span>: the player has a projectile with active hurtboxes
 
 If the training mode reset is triggered or both players don't input a move for 20 frames, the combo is considered "ended" and the display will reset on the next input move.
 

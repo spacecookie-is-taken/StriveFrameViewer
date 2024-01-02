@@ -192,7 +192,7 @@ class PlayerState {
   , state_time(0) {}
 
   PlayerState(asw_player& player, const PlayerState& last, bool proj_active) {
-    bool canact = player.can_act();
+    bool canact = player.can_act() || player.is_leo_stance();
     bool block_stunned = player.is_in_blockstun() || player.is_stagger() || player.is_guard_crush();
     bool hit_stunned = player.is_in_hitstun() || player.is_knockdown();
     bool player_active = player.is_active();
@@ -403,6 +403,8 @@ void addFrame() {
   asw_player* player_one = engine->players[0].entity;
   asw_player* player_two = engine->players[1].entity;
   if (!player_one || !player_two) return;
+
+  RC::Output::send<LogLevel::Warning>(STR("One State: {} {}\n"), (unsigned int)player_one->enable_flag, (unsigned int)player_one->cur_cmn_action_id);
 
   bool player_one_proj = false, player_two_proj = false;
   for (int idx = 0; idx < engine->entity_count; ++idx) {

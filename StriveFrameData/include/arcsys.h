@@ -478,17 +478,19 @@ public:
     FIELD(0xCFFC, int, slowdown_timer); // original: 0xCF9C + 0x060 = 0xCFFC
 
     int calc_advantage();
-    bool is_in_hitstun();
-    bool is_in_blockstun();
-    bool can_act();
-    bool is_down_bound();
-    bool is_quick_down_1();
-    bool is_quick_down_2();
-    bool is_down_loop();
-    bool is_down_2_stand();
-    bool is_knockdown();
-    bool is_roll();
-    bool is_stagger();
-    bool is_guard_crush();
-    bool is_stunned();
+    bool is_in_hitstun() const;
+    bool is_in_blockstun() const;
+    bool can_act() const;
+    bool is_down_bound() const;
+    bool is_quick_down_1() const;
+    bool is_quick_down_2() const;
+    bool is_down_loop() const;
+    bool is_down_2_stand() const;
+    bool is_knockdown() const;
+    bool is_roll() const;
+    bool is_stagger() const;
+    bool is_guard_crush() const;
+    bool is_stunned() const;
+    bool is_leo_stance() const;
+    bool is_chaos_stance() const;
 };
