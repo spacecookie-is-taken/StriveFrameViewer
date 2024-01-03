@@ -355,7 +355,7 @@ bool asw_player::is_stunned() const {
   return is_in_hitstun() || is_in_blockstun() || is_knockdown() || is_roll() || is_stagger() || is_guard_crush();
 }
 
-const char* asw_player::getBBState() const {
+const char* asw_entity::get_BB_state() const {
   if (!first_script_cmd) return nullptr;
 
   bbscript::opcode value = *reinterpret_cast<bbscript::opcode*>(first_script_cmd);
@@ -365,7 +365,7 @@ const char* asw_player::getBBState() const {
 }
 
 bool asw_player::is_stance_idle() const {
-  const char* player_state_raw = getBBState();
+  const char* player_state_raw = get_BB_state();
   if (!player_state_raw) return false;
   std::string_view player_state(player_state_raw);
 

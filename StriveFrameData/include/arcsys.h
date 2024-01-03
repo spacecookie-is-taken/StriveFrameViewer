@@ -273,6 +273,7 @@ public:
     void get_pushbox(int* left, int* top, int* right, int* bottom) const;
 
     const char* get_sprite_name() const { return &sprite_name[0]; }
+    const char* get_BB_state() const;
 };
 
 enum PLAYER_ENABLE_FLAG : uint32_t
@@ -494,6 +495,5 @@ public:
     bool is_guard_crush() const;
     bool is_stunned() const;
 
-    const char* getBBState() const;
     bool is_stance_idle() const;
 };

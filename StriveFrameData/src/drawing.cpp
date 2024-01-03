@@ -99,6 +99,7 @@ static const FLinearColor state_colors[] = {
     FLinearColor{.1f, .6f, .1f, .9f},  // Green
     FLinearColor{.7f, .7f, .1f, .9f},  // Yellow
     FLinearColor{.8f, .1f, .1f, .9f},  // Red
+    FLinearColor{.8f, .4f, .1f, .9f},  // Orange 
     FLinearColor{.8f, .4f, .1f, .9f}   // Orange
 };
 
@@ -171,141 +172,227 @@ enum PlayerStateType {
   PST_HitStunned,
   PST_Busy,
   PST_Attacking,
+  PST_ProjectileAttacking,
   PST_Recovering,
   PST_None,
   PST_End
 };
 
-struct EZ_Set {
-  using ElemType = asw_entity*;
-  using SetType = std::vector<ElemType>;
-  SetType data;
+struct ProjectileTracker {
+  struct ProjectileInfo {
+    asw_entity* direct_parent;
+    asw_entity* root_parent;
+    bool alive;
+    int old; // 0: brand new (protected), 1: not new, 2: marked old
+    int hit_delay = 2; // this entity has hit something already and should not be considered for further damage
 
-  static bool contains(const SetType& container, ElemType value) { return std::find(container.begin(), container.end(), value) != container.end(); }
-
-  EZ_Set& intersect(const EZ_Set& other) {
-    if (other.data.empty()) {
-      data.clear();
-      return *this;
+    ProjectileInfo(asw_entity* source){
+      direct_parent = source->parent_obj;
+      root_parent = direct_parent;
+      alive = true;
+      old = 0;
     }
-    SetType result;
-    for (auto* x : data) {
-      if (contains(other.data, x)) result.push_back(x);
+    ProjectileInfo(asw_entity* source, const std::pair<asw_entity*,ProjectileInfo>& parent_info){
+      direct_parent = parent_info.first;
+      root_parent = parent_info.second.root_parent;
+      alive = true;
+      old = parent_info.second.old;
     }
-    data = result;
-    return *this;
-  }
-  EZ_Set& unify(const EZ_Set& other) {
-    for (auto* x : other.data) {
-      if (!contains(data, x)) data.push_back(x);
-    }
-    return *this;
-  }
-  EZ_Set& subtract(const EZ_Set& other) {
-    if (other.data.empty()) return *this;
-    SetType result;
-    for (auto* x : data) {
-      if (!contains(other.data, x)) result.push_back(x);
-    }
-    data = result;
-    return *this;
-  }
-  std::size_t size() const { return data.size(); }
-  bool empty() const { return data.empty(); }
-};
+  };
 
-class PlayerState {
-  int time;
-  EZ_Set old_projectiles;  // projectiles the current move didn't make
-  EZ_Set cur_projectiles;  // projectiles the current move did make
+  std::unordered_map<asw_entity*, ProjectileInfo> ownership;
 
- public:
-  bool made_projectile;
-  bool old_project_ended;
-  bool cur_project_ended;
-  bool hitstop;
-  PlayerStateType type;
-  int state_time;
-
-  PlayerState()
-  : time(-1)
-  , made_projectile(false)
-  , old_project_ended(false)
-  , cur_project_ended(false)
-  , hitstop(false)
-  , type(PST_Idle)
-  , state_time(0) {}
-
-  EZ_Set findProjectiles(asw_player& player) {
-    const auto engine = asw_engine::get();
-    EZ_Set result;
-    bool player_one_proj = false, player_two_proj = false;
-    for (int idx = 0; idx < engine->entity_count; ++idx) {
-      auto* focus = engine->entities[idx];
-      if (focus->parent_obj == &player && focus->is_active()) {
-        result.data.push_back(focus);
+  void markOld(asw_player& player) {
+    // assumes a move will never spawn a projectile frame 1
+    for (auto& iter : ownership) {
+      if (iter.second.root_parent == &player && iter.second.old != 0) {
+        iter.second.old = 2;
       }
     }
-    return result;
   }
 
+  void processFrame() {
+    // assumes if an entity at &p was destroyed and a new entity is created at &p, any new entities that point to &p as their parent refer to the new one
+    const auto engine = asw_engine::get();
+    if (!engine) return;
+
+    asw_player* player_one = engine->players[0].entity;
+    asw_player* player_two = engine->players[1].entity;
+    if (!player_one || !player_two) return;
+
+    // mark all old pointers as dead until seen in the current frame
+    for (auto& iter : ownership) {
+      iter.second.alive = false;
+      if(iter.second.old == 0) iter.second.old = 1;
+    }
+
+    // check for in-frame reassignment
+    for (int idx = 0; idx < engine->entity_count; ++idx) {
+      auto *focus = engine->entities[idx], *parent = focus->parent_obj;
+      if (auto iter = ownership.find(focus); iter != ownership.end()) {
+        if (iter->second.direct_parent != parent) {
+          RC::Output::send<LogLevel::Warning>(STR("PSFP re-assign: {}, Old Parent: {}, New Parent: {}\n"), (void*)focus, (void*)iter->second.direct_parent, (void*)parent);
+          ownership.erase(focus);
+        } else {
+          iter->second.alive = true;
+        }
+      }
+    }
+
+    // create new infos and link parents
+    for (int idx = 0; idx < engine->entity_count; ++idx) {
+      auto *focus = engine->entities[idx], *parent = focus->parent_obj;
+      if (focus == player_one || focus == player_two) continue;
+      bool old = false;
+      if (ownership.find(focus) == ownership.end()) {
+        if (auto parent_iter = ownership.find(parent); parent_iter != ownership.end()) {
+          old = parent_iter->second.old;
+          ownership.emplace(focus, ProjectileInfo(focus, *parent_iter));
+        } else {
+          ownership.emplace(focus, ProjectileInfo(focus));
+        }
+      }
+      for (auto& iter : ownership) {
+        if (iter.second.root_parent == focus) {
+          iter.second.root_parent = parent;
+          iter.second.old = old;
+        }
+      }
+    }
+
+    // remove any dead elements
+    for (auto first = ownership.begin(), last = ownership.end(); first != last;) {
+      if (!first->second.alive) first = ownership.erase(first);
+      else ++first;
+    }
+  }
+  void debugDump() {
+    const auto engine = asw_engine::get();
+    if (!engine) return;
+
+    asw_player* player_one = engine->players[0].entity;
+    asw_player* player_two = engine->players[1].entity;
+
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+    auto format = STR("Prjt: {}, f:{}, dp:{}, pt:{}, old:{}, dmg:{} {}\n");
+    for (auto& iter : ownership) {
+      auto *focus = iter.first, *top_parent = iter.second.root_parent;
+      auto bb_script = converter.from_bytes(focus->get_BB_state());
+      void* direct_parent = (void*)iter.second.direct_parent;
+      const wchar_t* parent_type = (top_parent == player_one) ? L"ONE" : ((top_parent == player_two) ? L"TWO" : L"FREE");
+      constexpr const wchar_t* age_vals[] = {L"NEW", L"EXIST", L"OLD"};
+      const wchar_t* age = age_vals[iter.second.old];
+      const wchar_t* active = focus->is_active() ? L"Active" : L"";
+      int dmg = focus->atk_param_hit.damage;
+      RC::Output::send<LogLevel::Warning>(format, bb_script, (void*)focus, direct_parent, parent_type, age, dmg, active);
+    }
+  }
+};
+
+ProjectileTracker ptracker;
+
+bool shouldBeActive(std::pair<asw_entity*const,ProjectileTracker::ProjectileInfo>& info_pair) {
+  /* null check for two reasons:
+      strive leaves active but nulled sprites around FOREVER (metron 808 lasts 50 frames)
+      we don't want to apply the frame-0 hack to null sprites that haven't come out yet
+  */ 
+  if(std::string_view(info_pair.first->get_sprite_name()) == "null") return false;
+  if(info_pair.first->is_active()) return true;
+
+  // to compensate for projectiles that "should" be active but are self deactivating frame-0 
+  // we artificially extend their lifetime just long enough for our purposes.
+  int damage = info_pair.first->atk_param_hit.damage;
+  if(damage > 0 && info_pair.second.hit_delay) {
+    --info_pair.second.hit_delay;
+    return true;
+  }
+  return false;
+
+  /* Known Issues: 
+    Several Asuka spells will mark inactive and set sprite to null on frame-0 hit:
+      "Howling Metron" / "AttackMagic_01"
+      "Howling Metron MS Processing" / "AttackMagic_03"
+      "Bit Shift Metron" / "AttackMagic_10"
+      "RMS Boost Metron" / "AttackMagic_11"
+  */
+}
+
+class PlayerState {
+  bool any_prjt = false; // if there are any active projectiles, including old ones
+
+ public:
+  int time = -1;
+  PlayerStateType type = PST_Idle;
+  int state_time = 0;
+  bool active_stall = false;
+
+  PlayerState() {}
+
   PlayerState(asw_player& player, const PlayerState& last, const bool debug = false) {
+    time = player.action_time;
+
+    // assumes a sprite won't come out on this frame, this is false
+    const bool same_script = time > 1;
+    if (!same_script) {
+      ptracker.markOld(player);
+    }
+
     const bool normal_canact = player.can_act();
     const bool stance_canact = player.is_stance_idle();
     const bool block_stunned = player.is_in_blockstun() || player.is_stagger() || player.is_guard_crush();
-    const bool hit_stunned = player.is_in_hitstun() || player.is_knockdown();
+    const bool hit_stunned = player.is_in_hitstun();
+    const bool knockdown = player.is_knockdown();
     const bool player_active = player.is_active();
 
-    time = player.action_time;
+    bool projectile_active = false;
+    for (auto& iter : ptracker.ownership) {
+      if (iter.second.root_parent != &player || !shouldBeActive(iter)) continue;
+      any_prjt |= !player_active || (iter.second.old == 2);
+      projectile_active |= !(iter.second.old == 2);
+    }
+
+    // TODO: account for 0-lifetime projectiles that spawn and immediately self destruct, such as Asuka's 808
 
     if (normal_canact || stance_canact) type = PST_Idle;
     else if (block_stunned) type = PST_BlockStunned;
-    else if (hit_stunned) type = PST_HitStunned;
-    else if (player_active) type = PST_Attacking;
-    else if (time >= last.time && last.type == PST_Recovering) type = PST_Recovering;
+    else if (hit_stunned || knockdown) type = PST_HitStunned;
+    else if (player_active && last.active_stall) type = PST_Attacking;
+    else if (projectile_active && last.active_stall) type = PST_ProjectileAttacking;
+    else if (same_script && last.type != PST_Busy) type = PST_Recovering;
     else type = PST_Busy;
 
-    // update projectile sets to see if any went away
-    auto active_projectiles = findProjectiles(player);
-    old_projectiles = last.old_projectiles;
-    old_projectiles.intersect(active_projectiles);
-    old_project_ended = old_projectiles.size() < last.old_projectiles.size();
-    cur_projectiles = last.cur_projectiles;
-    cur_projectiles.intersect(active_projectiles);
-    cur_project_ended = cur_projectiles.size() < last.cur_projectiles.size();
+    // active stall prevents the first active frame (before the hit is registered) from appearing active
+    // this helps match Dustloop and looks more intuitive
+    if(player_active || projectile_active){
+      active_stall = true;
+    }
 
-    // see if we have any new projectiles
-    active_projectiles.subtract(old_projectiles).subtract(cur_projectiles);
-    made_projectile = !player_active && !active_projectiles.empty();
-
-
-    const bool started_recovery = (type == PST_Busy) && (time >= last.time) && ((last.type == PST_Attacking) || made_projectile);
-    if(started_recovery) type = PST_Recovering;
-
-    hitstop = (time == last.time) && (player_active || !cur_projectiles.empty());
-
-    if (last.type == type &&  (type != PST_Busy || time >= last.time) && !made_projectile && !cur_project_ended) {
-      state_time = (last.state_time < 500) ? last.state_time + 1 : last.state_time;
+    // state_time is used for determining how long was spent in each PST state for a single BB state script
+    // type != PST_Busy to prevent interuptible post move animations (that are idle equivalent) or chained stuns from breaking segments
+    if ((same_script || type != PST_Busy) && last.type == type) {
+      state_time = (last.state_time < 1000) ? last.state_time + 1 : last.state_time;
     } else {
       state_time = 1;
-      old_projectiles.unify(cur_projectiles);
-      cur_projectiles.data.clear();
     }
-    cur_projectiles.unify(active_projectiles);
 
     if (debug) {
+      auto format = STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, plact:{}, pjact:{}, any:{}, st:{}\n");
       std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-      std::wstring local_script = converter.from_bytes(player.getBBState());
+      std::wstring local_script = converter.from_bytes(player.get_BB_state());
       std::wstring local_sprite = converter.from_bytes(player.get_sprite_name());
-      RC::Output::send<LogLevel::Warning>(STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, act:{}, prj:{}, rcv:{}, hstop:{}, st:{}\n"), local_script, time, local_sprite, normal_canact ? L"Y" : L"N", stance_canact ? L"Y" : L"N", block_stunned ? L"Y" : L"N",
-                                          hit_stunned ? L"Y" : L"N", player_active ? L"Y" : L"N", made_projectile ? L"Y" : L"N", started_recovery ? L"Y" : L"N", hitstop ? L"Y" : L"N", state_time);
-      for(auto* c : cur_projectiles.data) RC::Output::send<LogLevel::Warning>(STR("- c:{}\n"), (void*)c);
-      for(auto* o : old_projectiles.data) RC::Output::send<LogLevel::Warning>(STR("- o:{}\n"), (void*)o);
+      auto nca = normal_canact ? L"Y" : L"N";
+      auto sca = stance_canact ? L"Y" : L"N";
+      auto bs = block_stunned ? L"Y" : L"N";
+      auto hs = hit_stunned ? L"Y" : L"N";
+      auto pla = player_active ? L"Y" : L"N";
+      auto pja = projectile_active ? L"Y" : L"N";
+      auto aja = any_prjt ? L"Y" : L"N";
+      RC::Output::send<LogLevel::Warning>(format, local_script, time, local_sprite, nca, sca, bs, hs, pla, pja, aja, state_time);
     }
   }
 
   bool isStunned() const { return type == PST_HitStunned || type == PST_BlockStunned; }
-  bool hasProjectile() const { return (type != PST_Attacking && !cur_projectiles.empty()) || !old_projectiles.empty();}
+  bool anyProjectiles() const { return (type == PST_ProjectileAttacking) || any_prjt; }
 };
 
 struct FrameState {
@@ -363,29 +450,42 @@ struct FrameState {
       // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
       active.color = previous.color * COLOR_DECAY;
     }
-    active.border = state.hasProjectile() ? projectile_color : color_invisible;
+    active.border = state.anyProjectiles() ? projectile_color : color_invisible;
   }
   void updateStats(const PlayerState& current, const PlayerState& previous, MoveStats& stats) {
-    if (current.type == PST_Attacking) {
+    if (current.type == PST_Attacking || current.type == PST_ProjectileAttacking) {
       stats.active = current.state_time;
     } else if (current.type == PST_Recovering) {
-      if(current.cur_project_ended) {
-        stats.active = previous.state_time;
-      }
       stats.recovery = current.state_time;
     } else if (current.type == PST_Busy) {
       stats.startup = current.state_time;
     }
   }
 
-  void addFrame(asw_player& player_one, asw_player& player_two) {
-    // update states
-    if (!current_state.first.hitstop && !current_state.second.hitstop) {
-      previous_state.first = current_state.first;
-      previous_state.second = current_state.second;
+  void processFrame() {
+    const auto engine = asw_engine::get();
+    if (!engine) return;
+
+    auto& p_one = *engine->players[0].entity;
+    auto& p_two = *engine->players[1].entity;
+
+    // update projectiles, even during hitstun
+    ptracker.processFrame();
+
+    // skip if hitstop
+    if(p_one.action_time == current_state.first.time && p_two.action_time == current_state.second.time){
+      RC::Output::send<LogLevel::Warning>(STR("SKIP\n")); 
+      return;
     }
-    current_state.first = PlayerState(player_one, previous_state.first, true);
-    current_state.second = PlayerState(player_two, previous_state.second);
+
+    // shift back states
+    previous_state.first = current_state.first;
+    previous_state.second = current_state.second;
+
+    // update states
+    current_state.first = PlayerState(p_one, previous_state.first, true);
+    current_state.second = PlayerState(p_two, previous_state.second, true);
+    ptracker.debugDump();
 
     // end combo if we've been idle for a long time
     if (current_state.first.type == PST_Idle && current_state.second.type == PST_Idle) {
@@ -405,12 +505,6 @@ struct FrameState {
     }
 
     DEBUG_PRINT(STR("Frame {}\n"), current_segment_idx);
-
-    // ignore hitstop time
-    if (current_state.first.hitstop || current_state.second.hitstop) {
-      DEBUG_PRINT(STR("Skipping Hitstop\n"));
-      return;
-    }
 
     // update move info
     updateStats(current_state.first, previous_state.first, stats.first);
@@ -460,9 +554,9 @@ struct FrameState {
     } else {
       DEBUG_PRINT(STR("Was not Active\n"));
       active_segment.first.color = state_colors[current_state.first.type];
-      active_segment.first.border = current_state.first.hasProjectile() ? projectile_color : color_invisible;
+      active_segment.first.border = current_state.first.anyProjectiles() ? projectile_color : color_invisible;
       active_segment.second.color = state_colors[current_state.second.type];
-      active_segment.second.border = current_state.second.hasProjectile() ? projectile_color : color_invisible;
+      active_segment.second.border = current_state.second.anyProjectiles() ? projectile_color : color_invisible;
     }
 
     // fade effect, clear segments near tail
@@ -492,22 +586,7 @@ void initFrames(const GetSizeParams& sizedata, RC::Unreal::UFunction* drawrect, 
 }
 
 void addFrame() {
-  const auto engine = asw_engine::get();
-  if (!engine) return;
-
-  asw_player* player_one = engine->players[0].entity;
-  asw_player* player_two = engine->players[1].entity;
-  if (!player_one || !player_two) return;
-
-  bool player_one_proj = false, player_two_proj = false;
-  for (int idx = 0; idx < engine->entity_count; ++idx) {
-    const auto *focus = engine->entities[idx], *parent = focus->parent_obj;
-
-    player_one_proj |= (parent == player_one && focus->is_active());
-    player_two_proj |= (parent == player_two && focus->is_active());
-  }
-
-  state_data.addFrame(*player_one, *player_two);
+  state_data.processFrame();
 }
 
 void resetFrames() {
@@ -531,11 +610,7 @@ void drawFrame(const FrameState::FrameInfo& info, int top, int left) {
 }
 
 std::wstring MakeStatsText(const FrameState::MoveStats& stats, int advantage) {
-  int startup = stats.startup;
-  if(stats.startup > 0 && stats.active > 0 && stats.recovery > 0){
-    startup += 1;
-  }
-  return std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", startup, stats.active, stats.recovery, advantage);
+  return std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", stats.startup, stats.active, stats.recovery, advantage);
 }
 
 void drawFrames(RC::Unreal::UObject* hud, const GetSizeParams& sizedata) {
