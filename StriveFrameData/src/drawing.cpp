@@ -177,6 +177,7 @@ enum PlayerStateType {
 
 class PlayerState {
   int time;
+  std::string script;
 
  public:
   bool projectile_active;
@@ -191,36 +192,57 @@ class PlayerState {
   , type(PST_Idle)
   , state_time(0) {}
 
-  PlayerState(asw_player& player, const PlayerState& last, bool proj_active) {
-    bool canact = player.can_act() || player.is_leo_stance();
+  PlayerState(asw_player& player, const PlayerState& last, bool proj_active, bool debug = false) {
+    bool normal_canact = player.can_act();
+    bool stance_canact = player.is_stance_idle();
     bool block_stunned = player.is_in_blockstun() || player.is_stagger() || player.is_guard_crush();
     bool hit_stunned = player.is_in_hitstun() || player.is_knockdown();
     bool player_active = player.is_active();
 
     time = player.action_time;
+    script = player.getBBState();
     projectile_active = !player_active && proj_active;
 
     bool recovery = time >= last.time && (last.type == PST_Recovering || (last.type == PST_Attacking && !player_active) || (!last.projectile_active && projectile_active));
     hitstop = (time == last.time) && (player_active || projectile_active);
 
-    if (canact) type = PST_Idle;
+    if (normal_canact || stance_canact) type = PST_Idle;
     else if (block_stunned) type = PST_BlockStunned;
     else if (hit_stunned) type = PST_HitStunned;
     else if (player_active) type = PST_Attacking;
     else if (recovery) type = PST_Recovering;
     else type = PST_Busy;
 
-    if (last.type == type && last.projectile_active == projectile_active) {
+    if (last.type == type && last.projectile_active == projectile_active && (last.type != PST_Busy || time >= last.time)) {
       state_time = (last.state_time < 500) ? last.state_time + 1 : last.state_time;
     } else {
       state_time = 1;
     }
-  }
-};
 
-void DebugPrintState(const PlayerState& f) {
-  DEBUG_PRINT(STR("can:{}, bs:{}, hs:{}, act:{}, t:{}, r:{}, hit:{}, st:{}\n"), f.canact, f.block_stunned, f.hit_stunned, f.active, f.time, f.recovery, f.hitstop, f.state_time);
-}
+    if(debug){
+      std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+      std::wstring local_script = converter.from_bytes(script);
+      std::wstring local_sprite = converter.from_bytes(player.get_sprite_name());
+      RC::Output::send<LogLevel::Warning>(
+        STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, act:{}, prj:{}, rcv:{}, hstop:{}, st:{}\n"),
+        local_script,
+        time,
+        local_sprite,
+        normal_canact ? L"Y":L"N",
+        stance_canact ? L"Y":L"N",
+        block_stunned ? L"Y":L"N",
+        hit_stunned ? L"Y":L"N",
+        player_active ? L"Y":L"N",
+        projectile_active ? L"Y":L"N",
+        recovery ? L"Y":L"N",
+        hitstop ? L"Y":L"N",
+        state_time
+      );
+    }
+  }
+
+  bool isStunned() const { return type == PST_HitStunned || type == PST_BlockStunned; }
+};
 
 struct FrameState {
   struct FrameInfo {
@@ -239,6 +261,7 @@ struct FrameState {
   std::pair<PlayerState, PlayerState> current_state;
 
   // last move stats
+  bool tracking_advantage = false;
   int advantage = 0;
 
   bool active = false;
@@ -247,7 +270,6 @@ struct FrameState {
   FrameState() { resetFrames(); }
 
   void resetFrames() {
-    advantage = 0;
     current_segment_idx = 0;
     current_state.first.state_time = 1;
     current_state.second.state_time = 1;
@@ -295,7 +317,7 @@ struct FrameState {
       previous_state.first = current_state.first;
       previous_state.second = current_state.second;
     }
-    current_state.first = PlayerState(player_one, previous_state.first, player_one_proj);
+    current_state.first = PlayerState(player_one, previous_state.first, player_one_proj, true);
     current_state.second = PlayerState(player_two, previous_state.second, player_two_proj);
 
     // end combo if we've been idle for a long time
@@ -316,8 +338,6 @@ struct FrameState {
     }
 
     DEBUG_PRINT(STR("Frame {}\n"), current_segment_idx);
-    DebugPrintState(current_state.first);
-    DebugPrintState(current_state.second);
 
     // ignore hitstop time
     if (current_state.first.hitstop || current_state.second.hitstop) {
@@ -330,15 +350,24 @@ struct FrameState {
     updateStats(current_state.second, stats.second);
 
     // update advantage
-    if (current_state.first.type == PST_Idle) {
-      if (!current_state.second.type == PST_Idle) {
-        ++advantage;
+    if (!tracking_advantage) {
+      if (current_state.first.isStunned() || current_state.second.isStunned()) {
+        advantage = 0;
+        tracking_advantage = true;
       }
     } else {
-      if (current_state.second.type == PST_Idle) {
-        --advantage;
+      if (current_state.first.type == PST_Idle) {
+        if (current_state.second.type == PST_Idle) {
+          tracking_advantage = false;
+        } else {
+          ++advantage;
+        }
       } else {
-        advantage = 0;
+        if (current_state.second.type == PST_Idle) {
+          --advantage;
+        } else {
+          advantage = 0;
+        }
       }
     }
 
@@ -374,7 +403,6 @@ struct FrameState {
     fade_segment.first.color.A = 0.f;
     fade_segment.second.color.A = 0.f;
 
-
     // advance to next segment
     if (++current_segment_idx >= FRAME_SEGMENTS) {
       DEBUG_PRINT(STR("Cycling segment index\n"));
@@ -404,8 +432,6 @@ void addFrame() {
   asw_player* player_two = engine->players[1].entity;
   if (!player_one || !player_two) return;
 
-  RC::Output::send<LogLevel::Warning>(STR("One State: {} {}\n"), (unsigned int)player_one->enable_flag, (unsigned int)player_one->cur_cmn_action_id);
-
   bool player_one_proj = false, player_two_proj = false;
   for (int idx = 0; idx < engine->entity_count; ++idx) {
     const auto *focus = engine->entities[idx], *parent = focus->parent_obj;
@@ -426,7 +452,7 @@ void resetFrames() {
 void drawFrame(const FrameState::FrameInfo& info, int top, int left) {
   if (info.color.A != 0.f) {
     if (info.border.A != 0.f) {
-      tool.drawRect(left-BORDER_THICKNESS, top-BORDER_THICKNESS, SEG_WIDTH + 2*BORDER_THICKNESS, SEG_HEIGHT + 2*BORDER_THICKNESS, info.border);
+      tool.drawRect(left - BORDER_THICKNESS, top - BORDER_THICKNESS, SEG_WIDTH + 2 * BORDER_THICKNESS, SEG_HEIGHT + 2 * BORDER_THICKNESS, info.border);
     }
     tool.drawRect(left, top, SEG_WIDTH, SEG_HEIGHT, info.color);
     if (info.trunc > 0) {

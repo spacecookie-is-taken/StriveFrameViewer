@@ -355,6 +355,33 @@ bool asw_player::is_stunned() const {
   return is_in_hitstun() || is_in_blockstun() || is_knockdown() || is_roll() || is_stagger() || is_guard_crush();
 }
 
-bool asw_player::is_leo_stance() const {
-  return (enable_flag & ENABLE_BURST) && (cur_cmn_action_id == 4294967295);
+const char* asw_player::getBBState() const {
+  if (!first_script_cmd) return nullptr;
+
+  bbscript::opcode value = *reinterpret_cast<bbscript::opcode*>(first_script_cmd);
+  if (value != bbscript::opcode::begin_state) return nullptr;
+  const char* state_name = first_script_cmd + 4;
+  return state_name;
+}
+
+bool asw_player::is_stance_idle() const {
+  const char* player_state_raw = getBBState();
+  if (!player_state_raw) return false;
+  std::string_view player_state(player_state_raw);
+
+  // Check for Leo stance idles
+  if (player_state == "Semuke" || player_state == "SemukeFWalk" || player_state == "SemukeBWalk") {
+    return true;
+  }
+  // Check for HC stance idles
+  if (player_state == "Sniper") {
+    std::string_view player_sprite(get_sprite_name(),32);
+    if(player_sprite.size() < 8) return false;
+    std::string_view sprite_stub = player_sprite.substr(0, 7);
+    bool busy = false;
+    busy |= (sprite_stub == "cos410_" && player_sprite.substr(0, 9) != "cos410_06"); // Startup animation
+    busy |= (sprite_stub == "cos425_" || sprite_stub == "cos412_" || sprite_stub == "cos426_" || sprite_stub == "cos424_"); // Shooting animations
+    return !busy;
+  }
+  return false;
 }

@@ -254,7 +254,7 @@ public:
     FIELD(0x1228, char*, script_base);
     FIELD(0x1230, char*, next_script_cmd);
     FIELD(0x1238, char*, first_script_cmd);
-    FIELD(0x1250, char*, sprite_name);
+    ARRAY_FIELD(0x1240, char[32], sprite_name);
     FIELD(0x1260, int, sprite_duration);
     FIELD(0x1268, int, sprite_total_duration);
     FIELD(0x134C, int, sprite_changes);
@@ -271,6 +271,8 @@ public:
     int pushbox_height() const;
     int pushbox_bottom() const;
     void get_pushbox(int* left, int* top, int* right, int* bottom) const;
+
+    const char* get_sprite_name() const { return &sprite_name[0]; }
 };
 
 enum PLAYER_ENABLE_FLAG : uint32_t
@@ -491,6 +493,7 @@ public:
     bool is_stagger() const;
     bool is_guard_crush() const;
     bool is_stunned() const;
-    bool is_leo_stance() const;
-    bool is_chaos_stance() const;
+
+    const char* getBBState() const;
+    bool is_stance_idle() const;
 };
