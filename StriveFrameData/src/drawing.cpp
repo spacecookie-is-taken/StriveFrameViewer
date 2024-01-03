@@ -3,6 +3,7 @@
 #include <DynamicOutput/DynamicOutput.hpp>
 
 #include <format>
+#include <set>
 
 /* Debug Stuff */
 #if 0
@@ -175,73 +176,136 @@ enum PlayerStateType {
   PST_End
 };
 
+struct EZ_Set {
+  using ElemType = asw_entity*;
+  using SetType = std::vector<ElemType>;
+  SetType data;
+
+  static bool contains(const SetType& container, ElemType value) { return std::find(container.begin(), container.end(), value) != container.end(); }
+
+  EZ_Set& intersect(const EZ_Set& other) {
+    if (other.data.empty()) {
+      data.clear();
+      return *this;
+    }
+    SetType result;
+    for (auto* x : data) {
+      if (contains(other.data, x)) result.push_back(x);
+    }
+    data = result;
+    return *this;
+  }
+  EZ_Set& unify(const EZ_Set& other) {
+    for (auto* x : other.data) {
+      if (!contains(data, x)) data.push_back(x);
+    }
+    return *this;
+  }
+  EZ_Set& subtract(const EZ_Set& other) {
+    if (other.data.empty()) return *this;
+    SetType result;
+    for (auto* x : data) {
+      if (!contains(other.data, x)) result.push_back(x);
+    }
+    data = result;
+    return *this;
+  }
+  std::size_t size() const { return data.size(); }
+  bool empty() const { return data.empty(); }
+};
+
 class PlayerState {
   int time;
-  std::string script;
+  EZ_Set old_projectiles;  // projectiles the current move didn't make
+  EZ_Set cur_projectiles;  // projectiles the current move did make
 
  public:
-  bool projectile_active;
+  bool made_projectile;
+  bool old_project_ended;
+  bool cur_project_ended;
   bool hitstop;
   PlayerStateType type;
   int state_time;
 
   PlayerState()
   : time(-1)
-  , projectile_active(false)
+  , made_projectile(false)
+  , old_project_ended(false)
+  , cur_project_ended(false)
   , hitstop(false)
   , type(PST_Idle)
   , state_time(0) {}
 
-  PlayerState(asw_player& player, const PlayerState& last, bool proj_active, bool debug = false) {
-    bool normal_canact = player.can_act();
-    bool stance_canact = player.is_stance_idle();
-    bool block_stunned = player.is_in_blockstun() || player.is_stagger() || player.is_guard_crush();
-    bool hit_stunned = player.is_in_hitstun() || player.is_knockdown();
-    bool player_active = player.is_active();
+  EZ_Set findProjectiles(asw_player& player) {
+    const auto engine = asw_engine::get();
+    EZ_Set result;
+    bool player_one_proj = false, player_two_proj = false;
+    for (int idx = 0; idx < engine->entity_count; ++idx) {
+      auto* focus = engine->entities[idx];
+      if (focus->parent_obj == &player && focus->is_active()) {
+        result.data.push_back(focus);
+      }
+    }
+    return result;
+  }
+
+  PlayerState(asw_player& player, const PlayerState& last, const bool debug = false) {
+    const bool normal_canact = player.can_act();
+    const bool stance_canact = player.is_stance_idle();
+    const bool block_stunned = player.is_in_blockstun() || player.is_stagger() || player.is_guard_crush();
+    const bool hit_stunned = player.is_in_hitstun() || player.is_knockdown();
+    const bool player_active = player.is_active();
 
     time = player.action_time;
-    script = player.getBBState();
-    projectile_active = !player_active && proj_active;
-
-    bool recovery = time >= last.time && (last.type == PST_Recovering || (last.type == PST_Attacking && !player_active) || (!last.projectile_active && projectile_active));
-    hitstop = (time == last.time) && (player_active || projectile_active);
 
     if (normal_canact || stance_canact) type = PST_Idle;
     else if (block_stunned) type = PST_BlockStunned;
     else if (hit_stunned) type = PST_HitStunned;
     else if (player_active) type = PST_Attacking;
-    else if (recovery) type = PST_Recovering;
+    else if (time >= last.time && last.type == PST_Recovering) type = PST_Recovering;
     else type = PST_Busy;
 
-    if (last.type == type && last.projectile_active == projectile_active && (last.type != PST_Busy || time >= last.time)) {
+    // update projectile sets to see if any went away
+    auto active_projectiles = findProjectiles(player);
+    old_projectiles = last.old_projectiles;
+    old_projectiles.intersect(active_projectiles);
+    old_project_ended = old_projectiles.size() < last.old_projectiles.size();
+    cur_projectiles = last.cur_projectiles;
+    cur_projectiles.intersect(active_projectiles);
+    cur_project_ended = cur_projectiles.size() < last.cur_projectiles.size();
+
+    // see if we have any new projectiles
+    active_projectiles.subtract(old_projectiles).subtract(cur_projectiles);
+    made_projectile = !player_active && !active_projectiles.empty();
+
+
+    const bool started_recovery = (type == PST_Busy) && (time >= last.time) && ((last.type == PST_Attacking) || made_projectile);
+    if(started_recovery) type = PST_Recovering;
+
+    hitstop = (time == last.time) && (player_active || !cur_projectiles.empty());
+
+    if (last.type == type &&  (type != PST_Busy || time >= last.time) && !made_projectile && !cur_project_ended) {
       state_time = (last.state_time < 500) ? last.state_time + 1 : last.state_time;
     } else {
       state_time = 1;
+      old_projectiles.unify(cur_projectiles);
+      cur_projectiles.data.clear();
     }
+    cur_projectiles.unify(active_projectiles);
 
-    if(debug){
+    if (debug) {
       std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-      std::wstring local_script = converter.from_bytes(script);
+      std::wstring local_script = converter.from_bytes(player.getBBState());
       std::wstring local_sprite = converter.from_bytes(player.get_sprite_name());
-      RC::Output::send<LogLevel::Warning>(
-        STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, act:{}, prj:{}, rcv:{}, hstop:{}, st:{}\n"),
-        local_script,
-        time,
-        local_sprite,
-        normal_canact ? L"Y":L"N",
-        stance_canact ? L"Y":L"N",
-        block_stunned ? L"Y":L"N",
-        hit_stunned ? L"Y":L"N",
-        player_active ? L"Y":L"N",
-        projectile_active ? L"Y":L"N",
-        recovery ? L"Y":L"N",
-        hitstop ? L"Y":L"N",
-        state_time
-      );
+      RC::Output::send<LogLevel::Warning>(STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, act:{}, prj:{}, rcv:{}, hstop:{}, st:{}\n"), local_script, time, local_sprite, normal_canact ? L"Y" : L"N", stance_canact ? L"Y" : L"N", block_stunned ? L"Y" : L"N",
+                                          hit_stunned ? L"Y" : L"N", player_active ? L"Y" : L"N", made_projectile ? L"Y" : L"N", started_recovery ? L"Y" : L"N", hitstop ? L"Y" : L"N", state_time);
+      for(auto* c : cur_projectiles.data) RC::Output::send<LogLevel::Warning>(STR("- c:{}\n"), (void*)c);
+      for(auto* o : old_projectiles.data) RC::Output::send<LogLevel::Warning>(STR("- o:{}\n"), (void*)o);
     }
   }
 
   bool isStunned() const { return type == PST_HitStunned || type == PST_BlockStunned; }
+  bool hasProjectile() const { return (type != PST_Attacking && !cur_projectiles.empty()) || !old_projectiles.empty();}
 };
 
 struct FrameState {
@@ -299,26 +363,29 @@ struct FrameState {
       // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
       active.color = previous.color * COLOR_DECAY;
     }
-    active.border = state.projectile_active ? projectile_color : color_invisible;
+    active.border = state.hasProjectile() ? projectile_color : color_invisible;
   }
-  void updateStats(const PlayerState& state, MoveStats& stats) {
-    if (state.type == PST_Attacking) {
-      stats.active = state.state_time;
-    } else if (state.type == PST_Recovering) {
-      stats.recovery = state.state_time;
-    } else if (state.type == PST_Busy) {
-      stats.startup = state.state_time;
+  void updateStats(const PlayerState& current, const PlayerState& previous, MoveStats& stats) {
+    if (current.type == PST_Attacking) {
+      stats.active = current.state_time;
+    } else if (current.type == PST_Recovering) {
+      if(current.cur_project_ended) {
+        stats.active = previous.state_time;
+      }
+      stats.recovery = current.state_time;
+    } else if (current.type == PST_Busy) {
+      stats.startup = current.state_time;
     }
   }
 
-  void addFrame(asw_player& player_one, asw_player& player_two, bool player_one_proj, bool player_two_proj) {
+  void addFrame(asw_player& player_one, asw_player& player_two) {
     // update states
     if (!current_state.first.hitstop && !current_state.second.hitstop) {
       previous_state.first = current_state.first;
       previous_state.second = current_state.second;
     }
-    current_state.first = PlayerState(player_one, previous_state.first, player_one_proj, true);
-    current_state.second = PlayerState(player_two, previous_state.second, player_two_proj);
+    current_state.first = PlayerState(player_one, previous_state.first, true);
+    current_state.second = PlayerState(player_two, previous_state.second);
 
     // end combo if we've been idle for a long time
     if (current_state.first.type == PST_Idle && current_state.second.type == PST_Idle) {
@@ -346,8 +413,8 @@ struct FrameState {
     }
 
     // update move info
-    updateStats(current_state.first, stats.first);
-    updateStats(current_state.second, stats.second);
+    updateStats(current_state.first, previous_state.first, stats.first);
+    updateStats(current_state.second, previous_state.second, stats.second);
 
     // update advantage
     if (!tracking_advantage) {
@@ -393,9 +460,9 @@ struct FrameState {
     } else {
       DEBUG_PRINT(STR("Was not Active\n"));
       active_segment.first.color = state_colors[current_state.first.type];
-      active_segment.first.border = current_state.first.projectile_active ? projectile_color : color_invisible;
+      active_segment.first.border = current_state.first.hasProjectile() ? projectile_color : color_invisible;
       active_segment.second.color = state_colors[current_state.second.type];
-      active_segment.second.border = current_state.second.projectile_active ? projectile_color : color_invisible;
+      active_segment.second.border = current_state.second.hasProjectile() ? projectile_color : color_invisible;
     }
 
     // fade effect, clear segments near tail
@@ -440,7 +507,7 @@ void addFrame() {
     player_two_proj |= (parent == player_two && focus->is_active());
   }
 
-  state_data.addFrame(*player_one, *player_two, player_one_proj, player_two_proj);
+  state_data.addFrame(*player_one, *player_two);
 }
 
 void resetFrames() {
@@ -464,7 +531,11 @@ void drawFrame(const FrameState::FrameInfo& info, int top, int left) {
 }
 
 std::wstring MakeStatsText(const FrameState::MoveStats& stats, int advantage) {
-  return std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", stats.startup, stats.active, stats.recovery, advantage);
+  int startup = stats.startup;
+  if(stats.startup > 0 && stats.active > 0 && stats.recovery > 0){
+    startup += 1;
+  }
+  return std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", startup, stats.active, stats.recovery, advantage);
 }
 
 void drawFrames(RC::Unreal::UObject* hud, const GetSizeParams& sizedata) {
