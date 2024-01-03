@@ -291,7 +291,21 @@ struct ProjectileTracker {
 
 ProjectileTracker ptracker;
 
+/* Known Issues: 
+    Several Asuka spells will mark inactive and set sprite to null on frame-0 hit:
+      "Howling Metron" / "AttackMagic_01"
+      "Howling Metron MS Processing" / "AttackMagic_03"
+      "Bit Shift Metron" / "AttackMagic_10"
+      "RMS Boost Metron" / "AttackMagic_11"
+  */
 bool shouldBeActive(std::pair<asw_entity*const,ProjectileTracker::ProjectileInfo>& info_pair) {
+  const auto bbscript = std::string_view(info_pair.first->get_BB_state());
+
+  // see above, these 4 break the assumptions that cover every other projectile, and I'm fucking tired
+  if(bbscript.size() == 14 && bbscript.substr(0,12) == "AttackMagic_"){
+    auto AM_num = bbscript.substr(12,2);
+    if(AM_num == "01" || AM_num == "03" || AM_num == "10" || AM_num == "11") return true;
+  }
   /* null check for two reasons:
       strive leaves active but nulled sprites around FOREVER (metron 808 lasts 50 frames)
       we don't want to apply the frame-0 hack to null sprites that haven't come out yet
@@ -308,13 +322,7 @@ bool shouldBeActive(std::pair<asw_entity*const,ProjectileTracker::ProjectileInfo
   }
   return false;
 
-  /* Known Issues: 
-    Several Asuka spells will mark inactive and set sprite to null on frame-0 hit:
-      "Howling Metron" / "AttackMagic_01"
-      "Howling Metron MS Processing" / "AttackMagic_03"
-      "Bit Shift Metron" / "AttackMagic_10"
-      "RMS Boost Metron" / "AttackMagic_11"
-  */
+  
 }
 
 class PlayerState {
@@ -474,7 +482,7 @@ struct FrameState {
 
     // skip if hitstop
     if(p_one.action_time == current_state.first.time && p_two.action_time == current_state.second.time){
-      RC::Output::send<LogLevel::Warning>(STR("SKIP\n")); 
+      //RC::Output::send<LogLevel::Warning>(STR("SKIP\n")); 
       return;
     }
 
@@ -483,9 +491,9 @@ struct FrameState {
     previous_state.second = current_state.second;
 
     // update states
-    current_state.first = PlayerState(p_one, previous_state.first, true);
-    current_state.second = PlayerState(p_two, previous_state.second, true);
-    ptracker.debugDump();
+    current_state.first = PlayerState(p_one, previous_state.first);
+    current_state.second = PlayerState(p_two, previous_state.second);
+    //ptracker.debugDump();
 
     // end combo if we've been idle for a long time
     if (current_state.first.type == PST_Idle && current_state.second.type == PST_Idle) {
