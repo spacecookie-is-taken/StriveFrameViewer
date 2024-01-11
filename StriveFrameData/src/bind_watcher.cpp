@@ -47,6 +47,7 @@ class BindWatcher {
   bool markKey(DWORD code) {
     std::lock_guard state_lock(state_mutex);
     if (!filter.test(code)) return false;
+    if(inputs.size() > 100) inputs.erase( inputs.begin() ); // only store latest 100 inputs
     inputs.push_back(code);
     return true;
   }
