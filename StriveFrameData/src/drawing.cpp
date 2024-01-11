@@ -433,18 +433,12 @@ struct FrameState {
     void update(const PlayerState& current) {
       if (current.type == PST_Busy) {
         startup = current.state_time + 1;
-        RC::Output::send<LogLevel::Warning>(STR("UPDATE STARTUP: {}\n"), startup);
       } else if (current.type == PST_Attacking || current.type == PST_ProjectileAttacking) {
         // this is a new attack
         if (actives.back().second > 0) actives.push_back({0, 0});
         actives.back().first = current.state_time;
-        RC::Output::send<LogLevel::Warning>(STR("UPDATE ACTIVE: {}\n"), actives.back().first);
       } else if (current.type == PST_Recovering) {
         actives.back().second = current.state_time;
-
-        RC::Output::send<LogLevel::Warning>(STR("UPDATE RECOVERY: {}\n"), actives.back().second);
-      } else {
-        RC::Output::send<LogLevel::Warning>(STR("NO UPDATE\n"));
       }
     }
   };
@@ -508,10 +502,7 @@ struct FrameState {
 
     // skip if hitstop
     if (p_one.hitstop > 0 && p_two.hitstop > 0) {
-      RC::Output::send<LogLevel::Warning>(STR("SKIP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
       return;
-    } else {
-      RC::Output::send<LogLevel::Warning>(STR("KEEP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
     }
 
     // shift back states
@@ -519,8 +510,8 @@ struct FrameState {
     previous_state.second = current_state.second;
 
     // update states
-    current_state.first = PlayerState(p_one, previous_state.first, true);
-    current_state.second = PlayerState(p_two, previous_state.second, true);
+    current_state.first = PlayerState(p_one, previous_state.first);
+    current_state.second = PlayerState(p_two, previous_state.second);
     // ptracker.debugDump();
 
     // end combo if we've been idle for a long time
