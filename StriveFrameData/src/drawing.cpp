@@ -27,6 +27,7 @@ constexpr int SEG_HEIGHT = 36;
 constexpr int SEG_SPACING = 4;
 constexpr int BAR_SPACING = 8;
 constexpr int BORDER_THICKNESS = 3;
+constexpr double OUTLINE_THICKNESS = 1.5;
 
 constexpr int SEG_TOTAL = SEG_SPACING + SEG_WIDTH;
 constexpr int BAR_WIDTH = (FRAME_SEGMENTS * SEG_TOTAL) + SEG_SPACING;
@@ -91,6 +92,7 @@ struct DrawTextParams {
 /* Unreal Constants */
 FLinearColor color_invisible{1.f, 1.f, 1.f, 0.f};
 FLinearColor color_white{1.f, 1.f, 1.f, 1.f};
+FLinearColor color_black{0.f, 0.f, 0.f, 1.f};
 FLinearColor projectile_color{.8f, .1f, .1f, 1.f};
 FLinearColor background_color{0.05f, 0.05f, 0.05f, 0.7f};
 static const FLinearColor state_colors[] = {
@@ -99,7 +101,7 @@ static const FLinearColor state_colors[] = {
     FLinearColor{.1f, .6f, .1f, .9f},  // Green
     FLinearColor{.7f, .7f, .1f, .9f},  // Yellow
     FLinearColor{.8f, .1f, .1f, .9f},  // Red
-    FLinearColor{.8f, .4f, .1f, .9f},  // Orange 
+    FLinearColor{.8f, .4f, .1f, .9f},  // Orange
     FLinearColor{.8f, .4f, .1f, .9f}   // Orange
 };
 
@@ -159,10 +161,27 @@ class DrawTool {
     double prj_y = center_y + (units * y);
     double front_scale = units * scale;
 
-    // TODO: scale text off screen resolution
-    DrawTextParams params{Text, color_white, prj_x, prj_y, font, front_scale, false};
+    const auto doCall = [&](const FLinearColor& used_color, const double used_x, const double used_y) {
+      DrawTextParams params{Text, used_color, used_x, used_y, font, front_scale, false};
+      hud_actor->ProcessEvent(drawtext_func, &params);
+    };
 
-    hud_actor->ProcessEvent(drawtext_func, &params);
+    // simulate outline
+#if 1  // cardinals
+    doCall(color_black, prj_x - OUTLINE_THICKNESS, prj_y);
+    doCall(color_black, prj_x, prj_y - OUTLINE_THICKNESS);
+    doCall(color_black, prj_x + OUTLINE_THICKNESS, prj_y);
+    doCall(color_black, prj_x, prj_y + OUTLINE_THICKNESS);
+#endif
+#if 1  // diagonals
+    doCall(color_black, prj_x - OUTLINE_THICKNESS, prj_y - OUTLINE_THICKNESS);
+    doCall(color_black, prj_x + OUTLINE_THICKNESS, prj_y - OUTLINE_THICKNESS);
+    doCall(color_black, prj_x + OUTLINE_THICKNESS, prj_y + OUTLINE_THICKNESS);
+    doCall(color_black, prj_x - OUTLINE_THICKNESS, prj_y + OUTLINE_THICKNESS);
+#endif
+
+    // actual text
+    doCall(color_white, prj_x, prj_y);
   }
 };
 
@@ -183,16 +202,16 @@ struct ProjectileTracker {
     asw_entity* direct_parent;
     asw_entity* root_parent;
     bool alive;
-    int old; // 0: brand new (protected), 1: not new, 2: marked old
-    int hit_delay = 2; // this entity has hit something already and should not be considered for further damage
+    int old;            // 0: brand new (protected), 1: not new, 2: marked old
+    int hit_delay = 2;  // this entity has hit something already and should not be considered for further damage
 
-    ProjectileInfo(asw_entity* source){
+    ProjectileInfo(asw_entity* source) {
       direct_parent = source->parent_obj;
       root_parent = direct_parent;
       alive = true;
       old = 0;
     }
-    ProjectileInfo(asw_entity* source, const std::pair<asw_entity*,ProjectileInfo>& parent_info){
+    ProjectileInfo(asw_entity* source, const std::pair<asw_entity*, ProjectileInfo>& parent_info) {
       direct_parent = parent_info.first;
       root_parent = parent_info.second.root_parent;
       alive = true;
@@ -223,7 +242,7 @@ struct ProjectileTracker {
     // mark all old pointers as dead until seen in the current frame
     for (auto& iter : ownership) {
       iter.second.alive = false;
-      if(iter.second.old == 0) iter.second.old = 1;
+      if (iter.second.old == 0) iter.second.old = 1;
     }
 
     // check for in-frame reassignment
@@ -291,48 +310,46 @@ struct ProjectileTracker {
 
 ProjectileTracker ptracker;
 
-/* Known Issues: 
+/* Known Issues:
     Several Asuka spells will mark inactive and set sprite to null on frame-0 hit:
       "Howling Metron" / "AttackMagic_01"
       "Howling Metron MS Processing" / "AttackMagic_03"
       "Bit Shift Metron" / "AttackMagic_10"
       "RMS Boost Metron" / "AttackMagic_11"
   */
-bool shouldBeActive(std::pair<asw_entity*const,ProjectileTracker::ProjectileInfo>& info_pair) {
+bool shouldBeActive(std::pair<asw_entity* const, ProjectileTracker::ProjectileInfo>& info_pair) {
   const auto bbscript = std::string_view(info_pair.first->get_BB_state());
 
   // see above, these 4 break the assumptions that cover every other projectile, and I'm fucking tired
-  if(bbscript.size() == 14 && bbscript.substr(0,12) == "AttackMagic_"){
-    auto AM_num = bbscript.substr(12,2);
-    if(AM_num == "01" || AM_num == "03" || AM_num == "10" || AM_num == "11") return true;
+  if (bbscript.size() == 14 && bbscript.substr(0, 12) == "AttackMagic_") {
+    auto AM_num = bbscript.substr(12, 2);
+    if (AM_num == "01" || AM_num == "03" || AM_num == "10" || AM_num == "11") return true;
   }
   /* null check for two reasons:
       strive leaves active but nulled sprites around FOREVER (metron 808 lasts 50 frames)
       we don't want to apply the frame-0 hack to null sprites that haven't come out yet
-  */ 
-  if(std::string_view(info_pair.first->get_sprite_name()) == "null") return false;
-  if(info_pair.first->is_active()) return true;
+  */
+  if (std::string_view(info_pair.first->get_sprite_name()) == "null") return false;
+  if (info_pair.first->is_active()) return true;
 
-  // to compensate for projectiles that "should" be active but are self deactivating frame-0 
+  // to compensate for projectiles that "should" be active but are self deactivating frame-0
   // we artificially extend their lifetime just long enough for our purposes.
   int damage = info_pair.first->atk_param_hit.damage;
-  if(damage > 0 && info_pair.second.hit_delay) {
+  if (damage > 0 && info_pair.second.hit_delay) {
     --info_pair.second.hit_delay;
     return true;
   }
   return false;
-
-  
 }
 
 class PlayerState {
-  bool any_prjt = false; // if there are any active projectiles, including old ones
+  bool any_prjt = false;  // if there are any active projectiles, including old ones
 
  public:
   int time = -1;
   PlayerStateType type = PST_Idle;
   int state_time = 0;
-  bool active_stall = false;
+  bool active_stall = true;
 
   PlayerState() {}
 
@@ -350,7 +367,7 @@ class PlayerState {
     const bool block_stunned = player.is_in_blockstun() || player.is_stagger() || player.is_guard_crush();
     const bool hit_stunned = player.is_in_hitstun();
     const bool knockdown = player.is_knockdown();
-    const bool player_active = player.is_active();
+    const bool player_active = player.is_active() && player.hitbox_count > 0;
 
     bool projectile_active = false;
     for (auto& iter : ptracker.ownership) {
@@ -371,7 +388,7 @@ class PlayerState {
 
     // active stall prevents the first active frame (before the hit is registered) from appearing active
     // this helps match Dustloop and looks more intuitive
-    if(player_active || projectile_active){
+    if (player_active || projectile_active) {
       active_stall = true;
     }
 
@@ -411,11 +428,29 @@ struct FrameState {
   };
   struct MoveStats {
     int startup = 0;
-    int active = 0;
-    int recovery = 0;
+    std::vector<std::pair<int, int>> actives{{0, 0}};
+
+    void update(const PlayerState& current) {
+      if (current.type == PST_Busy) {
+        startup = current.state_time + 1;
+        RC::Output::send<LogLevel::Warning>(STR("UPDATE STARTUP: {}\n"), startup);
+      } else if (current.type == PST_Attacking || current.type == PST_ProjectileAttacking) {
+        // this is a new attack
+        if (actives.back().second > 0) actives.push_back({0, 0});
+        actives.back().first = current.state_time;
+        RC::Output::send<LogLevel::Warning>(STR("UPDATE ACTIVE: {}\n"), actives.back().first);
+      } else if (current.type == PST_Recovering) {
+        actives.back().second = current.state_time;
+
+        RC::Output::send<LogLevel::Warning>(STR("UPDATE RECOVERY: {}\n"), actives.back().second);
+      } else {
+        RC::Output::send<LogLevel::Warning>(STR("NO UPDATE\n"));
+      }
+    }
   };
   std::pair<FrameInfo, FrameInfo> segments[FRAME_SEGMENTS];
-  std::pair<MoveStats, MoveStats> stats;
+  std::pair<MoveStats, MoveStats> working_stats;
+  std::pair<MoveStats, MoveStats> displayed_stats;
   std::pair<PlayerState, PlayerState> previous_state;
   std::pair<PlayerState, PlayerState> current_state;
 
@@ -434,7 +469,7 @@ struct FrameState {
     current_state.second.state_time = 1;
     previous_state.first.state_time = 1;
     previous_state.second.state_time = 1;
-    stats = std::make_pair(MoveStats(), MoveStats());
+    working_stats = std::make_pair(MoveStats(), MoveStats());
     for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
       segments[idx] = std::make_pair(FrameInfo(), FrameInfo());
     }
@@ -460,15 +495,6 @@ struct FrameState {
     }
     active.border = state.anyProjectiles() ? projectile_color : color_invisible;
   }
-  void updateStats(const PlayerState& current, const PlayerState& previous, MoveStats& stats) {
-    if (current.type == PST_Attacking || current.type == PST_ProjectileAttacking) {
-      stats.active = current.state_time;
-    } else if (current.type == PST_Recovering) {
-      stats.recovery = current.state_time;
-    } else if (current.type == PST_Busy) {
-      stats.startup = current.state_time;
-    }
-  }
 
   void processFrame() {
     const auto engine = asw_engine::get();
@@ -481,9 +507,11 @@ struct FrameState {
     ptracker.processFrame();
 
     // skip if hitstop
-    if(p_one.action_time == current_state.first.time && p_two.action_time == current_state.second.time){
-      //RC::Output::send<LogLevel::Warning>(STR("SKIP\n")); 
+    if (p_one.hitstop > 0 && p_two.hitstop > 0) {
+      RC::Output::send<LogLevel::Warning>(STR("SKIP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
       return;
+    } else {
+      RC::Output::send<LogLevel::Warning>(STR("KEEP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
     }
 
     // shift back states
@@ -491,9 +519,9 @@ struct FrameState {
     previous_state.second = current_state.second;
 
     // update states
-    current_state.first = PlayerState(p_one, previous_state.first);
-    current_state.second = PlayerState(p_two, previous_state.second);
-    //ptracker.debugDump();
+    current_state.first = PlayerState(p_one, previous_state.first, true);
+    current_state.second = PlayerState(p_two, previous_state.second, true);
+    // ptracker.debugDump();
 
     // end combo if we've been idle for a long time
     if (current_state.first.type == PST_Idle && current_state.second.type == PST_Idle) {
@@ -515,8 +543,26 @@ struct FrameState {
     DEBUG_PRINT(STR("Frame {}\n"), current_segment_idx);
 
     // update move info
-    updateStats(current_state.first, previous_state.first, stats.first);
-    updateStats(current_state.second, previous_state.second, stats.second);
+    if (current_state.first.time > 1) {
+      working_stats.first.update(current_state.first);
+      if (working_stats.first.actives.front().first > 0) {
+        displayed_stats.first = working_stats.first;
+      }
+    }
+    else {
+      working_stats.first = MoveStats();
+    }
+    
+    if (current_state.second.time > 1) {
+      working_stats.second.update(current_state.second);
+      if (working_stats.second.actives.front().first > 0) {
+        displayed_stats.second = working_stats.second;
+      }
+    }
+    else {
+      working_stats.second = MoveStats();
+    }
+    
 
     // update advantage
     if (!tracking_advantage) {
@@ -618,14 +664,22 @@ void drawFrame(const FrameState::FrameInfo& info, int top, int left) {
 }
 
 std::wstring MakeStatsText(const FrameState::MoveStats& stats, int advantage) {
-  return std::format(L"Startup: {}, Active: {}, Recovery: {}, Advantage: {}", stats.startup, stats.active, stats.recovery, advantage);
+  std::wstringstream builder;
+  builder << L"Startup: " << stats.startup << ", Active: ";
+  for(int idx = 0; idx < stats.actives.size() - 1; ++idx){
+    auto& focus = stats.actives[idx];
+    builder << focus.first << L"(" << focus.second << ")";
+  }
+  auto& last = stats.actives.back();
+  builder << last.first << ", Recovery: " << last.second << L", Advantage: " << advantage;
+  return builder.str();
 }
 
 void drawFrames(RC::Unreal::UObject* hud, const GetSizeParams& sizedata) {
   tool.update(sizedata, hud);
 
-  auto player_one_info = MakeStatsText(state_data.stats.first, state_data.advantage);
-  auto player_two_info = MakeStatsText(state_data.stats.second, -state_data.advantage);
+  auto player_one_info = MakeStatsText(state_data.displayed_stats.first, state_data.advantage);
+  auto player_two_info = MakeStatsText(state_data.displayed_stats.second, -state_data.advantage);
 
   tool.drawText(BAR_LEFT, INFO_ONE_LOC, player_one_info, BAR_TEXT_SIZE);
   tool.drawText(BAR_LEFT, INFO_TWO_LOC, player_two_info, BAR_TEXT_SIZE);
