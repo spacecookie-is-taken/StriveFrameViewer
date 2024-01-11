@@ -11,6 +11,8 @@
 #else
 #define DEBUG_PRINT(...)
 #endif
+#define ENABLE_PRJT_DEBUG false
+#define ENABLE_STATE_DEBUG false
 
 /* Combo Triger Settings */
 constexpr int COMBO_ENDED_TIME = 20;  // time idle before combo is considered over
@@ -286,6 +288,8 @@ struct ProjectileTracker {
     }
   }
   void debugDump() {
+    constexpr const wchar_t* age_vals[] = {L"NEW", L"EXIST", L"OLD"};
+
     const auto engine = asw_engine::get();
     if (!engine) return;
 
@@ -293,18 +297,24 @@ struct ProjectileTracker {
     asw_player* player_two = engine->players[1].entity;
 
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
-    auto format = STR("Prjt: {}, f:{}, dp:{}, pt:{}, old:{}, dmg:{} {}\n");
+    auto format = STR("Prjt script:{}, sprite:{}, ptr:{}, par:{}, pt:{}, old:{}, dmg:{}, hit:{}, act:{}\n");
     for (auto& iter : ownership) {
       auto *focus = iter.first, *top_parent = iter.second.root_parent;
       auto bb_script = converter.from_bytes(focus->get_BB_state());
+      auto sprite = converter.from_bytes(focus->get_sprite_name());
       void* direct_parent = (void*)iter.second.direct_parent;
       const wchar_t* parent_type = (top_parent == player_one) ? L"ONE" : ((top_parent == player_two) ? L"TWO" : L"FREE");
-      constexpr const wchar_t* age_vals[] = {L"NEW", L"EXIST", L"OLD"};
       const wchar_t* age = age_vals[iter.second.old];
-      const wchar_t* active = focus->is_active() ? L"Active" : L"";
       int dmg = focus->atk_param_hit.damage;
-      RC::Output::send<LogLevel::Warning>(format, bb_script, (void*)focus, direct_parent, parent_type, age, dmg, active);
+      int hitbox_count = focus->hitbox_count;
+      const wchar_t* active = focus->is_active() ? L"Y" : L"N";
+      
+      RC::Output::send<LogLevel::Warning>(format, bb_script, sprite, (void*)focus, direct_parent, parent_type, age, dmg, hitbox_count, active);
     }
+  }
+
+  void reset() {
+    ownership.clear();
   }
 };
 
@@ -329,8 +339,12 @@ bool shouldBeActive(std::pair<asw_entity* const, ProjectileTracker::ProjectileIn
       strive leaves active but nulled sprites around FOREVER (metron 808 lasts 50 frames)
       we don't want to apply the frame-0 hack to null sprites that haven't come out yet
   */
-  if (std::string_view(info_pair.first->get_sprite_name()) == "null") return false;
-  if (info_pair.first->is_active()) return true;
+  const auto sprite = std::string_view(info_pair.first->get_sprite_name());
+  if (sprite == "null") return false;
+  if (info_pair.first->is_active() && info_pair.first->hitbox_count > 0) return true;
+
+  // tatami mat is spawned WAY before its active, don't apply frame-0 hack to it
+  if(bbscript == "TatamiLandObj") return false;
 
   // to compensate for projectiles that "should" be active but are self deactivating frame-0
   // we artificially extend their lifetime just long enough for our purposes.
@@ -499,10 +513,17 @@ struct FrameState {
 
     // update projectiles, even during hitstun
     ptracker.processFrame();
+    if constexpr(ENABLE_PRJT_DEBUG){
+      RC::Output::send<LogLevel::Warning>(STR("PTracker Pre:\n"));
+      ptracker.debugDump();
+    }
 
     // skip if hitstop
     if (p_one.hitstop > 0 && p_two.hitstop > 0) {
+      //RC::Output::send<LogLevel::Warning>(STR("SKIP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
       return;
+    } else {
+      //RC::Output::send<LogLevel::Warning>(STR("KEEP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
     }
 
     // shift back states
@@ -510,9 +531,12 @@ struct FrameState {
     previous_state.second = current_state.second;
 
     // update states
-    current_state.first = PlayerState(p_one, previous_state.first);
-    current_state.second = PlayerState(p_two, previous_state.second);
-    // ptracker.debugDump();
+    current_state.first = PlayerState(p_one, previous_state.first, ENABLE_STATE_DEBUG);
+    current_state.second = PlayerState(p_two, previous_state.second, ENABLE_STATE_DEBUG);
+    if constexpr(ENABLE_PRJT_DEBUG){
+      RC::Output::send<LogLevel::Warning>(STR("PTracker Post:\n"));
+      ptracker.debugDump();
+    }
 
     // end combo if we've been idle for a long time
     if (current_state.first.type == PST_Idle && current_state.second.type == PST_Idle) {
@@ -638,6 +662,7 @@ void resetFrames() {
   state_data.active = false;
   state_data.current_state.first = PlayerState();
   state_data.current_state.second = PlayerState();
+  ptracker.reset();
 }
 
 void drawFrame(const FrameState::FrameInfo& info, int top, int left) {
