@@ -385,7 +385,7 @@ class PlayerState {
     const bool block_stunned = player.is_in_blockstun() || player.is_stagger() || player.is_guard_crush();
     const bool hit_stunned = player.is_in_hitstun();
     const bool knockdown = player.is_knockdown();
-    const bool player_active = player.is_active() && player.hitbox_count > 0;
+    const bool player_active = player.is_active() && (player.hitbox_count > 0 || player.throw_range >= 0);
 
     bool projectile_active = false;
     for (auto& iter : ptracker.ownership) {
@@ -419,7 +419,7 @@ class PlayerState {
     }
 
     if (debug) {
-      auto format = STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, plact:{}, pjact:{}, any:{}, st:{} cin:{}\n");
+      auto format = STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, plact:{}, pjact:{}, any:{}, st:{}, cin:{}, hbc:{}, trw:{}\n");
       std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
       std::wstring local_script = converter.from_bytes(player.get_BB_state());
       std::wstring local_sprite = converter.from_bytes(player.get_sprite_name());
@@ -431,7 +431,7 @@ class PlayerState {
       auto pja = projectile_active ? L"Y" : L"N";
       auto aja = any_prjt ? L"Y" : L"N";
       auto cin = player.cinematic_counter ? L"Y" : L"N";
-      RC::Output::send<LogLevel::Warning>(format, local_script, time, local_sprite, nca, sca, bs, hs, pla, pja, aja, state_time, cin);
+      RC::Output::send<LogLevel::Warning>(format, local_script, time, local_sprite, nca, sca, bs, hs, pla, pja, aja, state_time, cin, player.hitbox_count, player.throw_range);
     }
   }
 

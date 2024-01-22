@@ -44,8 +44,10 @@ In the external mod management GUI, there is a "Strive Frame Data" tab. This tab
 - Fix off by one errors caused by pausing
 - Save options between game sessions
 - Extend options
-- Ram 5H/fS/2S/2H/214H has a projectile on counterhit?
-- Ram Calvados and Bajoneto shows a projectile to early (likely same issue as Baiken's Mat)
+- Ram Calvados shows a projectile to early (likely same issue as Baiken's Mat)
+- Pause inputs coming out late
+- Some command throws don't show active frames
+
 
 ## Disabling
 The simplest way to disable this and any other ue4ss mods is to delete or remove the ```dwmapi.dll``` file from the game files. If this file is not present, the rest of the mod will not be loaded when the game is launched.
