@@ -343,8 +343,12 @@ bool shouldBeActive(std::pair<asw_entity* const, ProjectileTracker::ProjectileIn
   if (sprite == "null") return false;
   if (info_pair.first->is_active() && info_pair.first->hitbox_count > 0) return true;
 
+  /* another hack... some projectiles spawn deactived and activate later on
+    Baikan's Tatami Mat
+    either of Ram's Bajoneto
+  */
   // tatami mat is spawned WAY before its active, don't apply frame-0 hack to it
-  if(bbscript == "TatamiLandObj") return false;
+  if(bbscript == "TatamiLandObj" || bbscript == "404wepL_summon_short" || bbscript == "404wepR_summon_short") return false;
 
   // to compensate for projectiles that "should" be active but are self deactivating frame-0
   // we artificially extend their lifetime just long enough for our purposes.
@@ -415,7 +419,7 @@ class PlayerState {
     }
 
     if (debug) {
-      auto format = STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, plact:{}, pjact:{}, any:{}, st:{}\n");
+      auto format = STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, plact:{}, pjact:{}, any:{}, st:{} cin:{}\n");
       std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
       std::wstring local_script = converter.from_bytes(player.get_BB_state());
       std::wstring local_sprite = converter.from_bytes(player.get_sprite_name());
@@ -426,7 +430,8 @@ class PlayerState {
       auto pla = player_active ? L"Y" : L"N";
       auto pja = projectile_active ? L"Y" : L"N";
       auto aja = any_prjt ? L"Y" : L"N";
-      RC::Output::send<LogLevel::Warning>(format, local_script, time, local_sprite, nca, sca, bs, hs, pla, pja, aja, state_time);
+      auto cin = player.cinematic_counter ? L"Y" : L"N";
+      RC::Output::send<LogLevel::Warning>(format, local_script, time, local_sprite, nca, sca, bs, hs, pla, pja, aja, state_time, cin);
     }
   }
 
@@ -518,21 +523,35 @@ struct FrameState {
       ptracker.debugDump();
     }
 
-    // skip if hitstop
-    if (p_one.hitstop > 0 && p_two.hitstop > 0) {
-      //RC::Output::send<LogLevel::Warning>(STR("SKIP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
+    // crate updated states
+    std::pair<PlayerState, PlayerState> next = {
+      PlayerState(p_one, current_state.first, ENABLE_STATE_DEBUG),
+      PlayerState(p_two, current_state.second, ENABLE_STATE_DEBUG)
+    };
+
+    if(p_one.cinematic_counter || p_two.cinematic_counter){
+      if constexpr(ENABLE_STATE_DEBUG) {
+        RC::Output::send<LogLevel::Warning>(STR("CINEMATIC SKIP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
+      }
       return;
-    } else {
-      //RC::Output::send<LogLevel::Warning>(STR("KEEP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
+    }
+    // covers COUNTER HIT, this might cover all cases
+    else if((next.first.time == current_state.first.time && next.first.time > 1 && (next.second.type == PST_HitStunned || next.second.type == PST_BlockStunned))
+      ||    (next.second.time == current_state.second.time && next.second.time > 1 && (next.first.type == PST_HitStunned || next.first.type == PST_BlockStunned))){
+      if constexpr(ENABLE_STATE_DEBUG) {
+        RC::Output::send<LogLevel::Warning>(STR("STUN SKIP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
+      }
+      return;
+    }
+    else if constexpr(ENABLE_STATE_DEBUG) {
+      RC::Output::send<LogLevel::Warning>(STR("KEEP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
     }
 
-    // shift back states
+    // shift states
     previous_state.first = current_state.first;
     previous_state.second = current_state.second;
+    current_state = next;
 
-    // update states
-    current_state.first = PlayerState(p_one, previous_state.first, ENABLE_STATE_DEBUG);
-    current_state.second = PlayerState(p_two, previous_state.second, ENABLE_STATE_DEBUG);
     if constexpr(ENABLE_PRJT_DEBUG){
       RC::Output::send<LogLevel::Warning>(STR("PTracker Post:\n"));
       ptracker.debugDump();

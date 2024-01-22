@@ -189,7 +189,7 @@ class UeTracker {
     std::vector<RC::Unreal::UObject*> all_fonts;
     UObjectGlobals::FindAllOf(ufont_class_name, all_fonts);
     for (auto* font : all_fonts) {
-      RC::Output::send<LogLevel::Warning>(STR("- {}\n"), font->GetName());
+      RC::Output::send<LogLevel::Warning>(STR("-font: {}\n"), font->GetName());
       if (font->GetName() == L"RobotoDistanceField") {
         font_object = font;
         return true;
