@@ -41,19 +41,13 @@ jobs:
     - name: Package
       working-directory: ${{env.GITHUB_WORKSPACE}}
       run: |
-        mkdir result\Mods\StriveFrameViewer\dlls
-        mkdir result\UE4SS_Signatures
-        cp .\build\StriveFrameData\${{env.BUILD_CONFIGURATION}}\StriveFrameData.dll .\result\Mods\StriveFrameViewer\dlls\main.dll
-        cp .\build\Output\${{env.BUILD_CONFIGURATION}}\proxy\bin\dwmapi.dll .\result\dwmapi.dll
-        cp .\build\Output\${{env.BUILD_CONFIGURATION}}\UE4SS\bin\UE4SS.dll .\result\UE4SS.dll
-        cp .\prereqs\mods.txt .\result\Mods\mods.txt
-        cp .\prereqs\UE4SS-settings.ini .\result\UE4SS-settings.ini
-        cp .\prereqs\FText_Constructor.lua .\result\UE4SS_Signatures\FText_Constructor.lua
+        mkdir result\ue4ss\StriveFrameViewer\dlls
+        cp .\build\StriveFrameData\${{env.BUILD_CONFIGURATION}}\StriveFrameData.dll .\result\ue4ss\StriveFrameViewer\dlls\main.dll
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v3.1.1
       with:
-        name: StriveFrameData
+        name: StriveFrameViewer
         path: ${{github.workspace}}\result\
         if-no-files-found: error
 
