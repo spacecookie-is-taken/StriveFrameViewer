@@ -90,6 +90,15 @@ public:
   FIELD(0xA8, unsigned long, event_count);
 };
 
+class asw_inputs {
+public:
+  unsigned short m_PreRecFlg; // 0x0
+	unsigned short m_CurRecFlg; // 0x2
+	unsigned short m_RecFlgList[30]; // 0x4
+	unsigned short m_RecFlgTime[30]; // 0x40
+	unsigned short m_CurIndex; // 0x7C
+};
+
 // Used by the shared GG/BB/DBFZ engine code
 class asw_engine {
 public:
@@ -101,6 +110,7 @@ public:
 	FIELD(0x8A0, int, entity_count);
 	ARRAY_FIELD(0xC10, class asw_entity* [107], entities);
 	ARRAY_FIELD(0x1498, RC::Unreal::AActor* [7], pawns);
+  ARRAY_FIELD(0x37A8, asw_inputs[6], inputs);
 };
 
 class asw_scene {

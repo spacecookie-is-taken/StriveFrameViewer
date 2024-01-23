@@ -187,6 +187,46 @@ class DrawTool {
   }
 };
 
+class RedInputChecker {
+  unsigned short novel_inputs;
+public:
+  enum InputFlag {
+    IF_Up = 0x1,
+    IF_Down = 0x2,
+    IF_Left = 0x4,
+    IF_Right = 0x8,
+    IF_P = 0x10,
+    IF_K = 0x20,
+    IF_S = 0x40,
+    IF_H = 0x80,
+    IF_Dust = 0x100,
+    IF_ANY = 0x1FF
+  };
+  RedInputChecker(asw_inputs& inputs){
+    novel_inputs = inputs.m_CurRecFlg & (~inputs.m_PreRecFlg);
+  }
+  bool checkInput(InputFlag flag) const { return novel_inputs & flag; }
+
+  const IconLoc& getDirLoc(){
+    int offset = 0;
+    if(checkInput(IF_Up)) offset += 3;
+    else if(checkInput(IF_Down)) offset += 6;
+
+    if(checkInput(IF_Left)) offset += 1;
+    else if(checkInput(IF_Right)) offset += 2;
+
+    return ICON_DIR_LOCS[offset];
+  }
+  const IconLoc& getButtonLoc(){
+    if(checkInput(IF_P)) return ICON_BUTTON_P_LOC;
+    if(checkInput(IF_K)) return ICON_BUTTON_K_LOC;
+    if(checkInput(IF_S)) return ICON_BUTTON_S_LOC;
+    if(checkInput(IF_H)) return ICON_BUTTON_H_LOC;
+    if(checkInput(IF_Dust)) return ICON_BUTTON_D_LOC;
+    return ICON_NULL_LOC;
+  }
+};
+
 enum PlayerStateType {
   PST_Idle = 0,
   PST_BlockStunned,
