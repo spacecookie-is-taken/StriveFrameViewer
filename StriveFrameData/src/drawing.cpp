@@ -54,6 +54,40 @@ constexpr int SEGS_ONE_BOTTOM = BAR_ONE_BOTTOM - SEG_SPACING;
 constexpr int INFO_ONE_LOC = BAR_ONE_TOP - BAR_HEIGHT;
 constexpr int INFO_TWO_LOC = BAR_TWO_BOTTOM + 2;
 
+/* Icon info */
+constexpr double ICON_SHEET_SIZE = 4096;
+constexpr double ICON_SPRITE_SIZE = 84;
+constexpr double ICON_SPRITE_REL = ICON_SPRITE_SIZE / ICON_SHEET_SIZE;
+
+using IconLoc = std::pair<int,int>;
+constexpr IconLoc ICON_NULL_LOC = {0,0};
+constexpr IconLoc ICON_BUTTON_P_LOC = {6,0};
+constexpr IconLoc ICON_BUTTON_K_LOC = {7,0};
+constexpr IconLoc ICON_BUTTON_S_LOC = {8,0};
+constexpr IconLoc ICON_BUTTON_H_LOC = {9,0};
+constexpr IconLoc ICON_BUTTON_D_LOC = {10,0};
+
+constexpr IconLoc ICON_DIR_N_LOC = {0,6};
+constexpr IconLoc ICON_DIR_D_LOC = {1,6};
+constexpr IconLoc ICON_DIR_DL_LOC = {2,6};
+constexpr IconLoc ICON_DIR_L_LOC = {3,6};
+constexpr IconLoc ICON_DIR_UL_LOC = {4,6};
+constexpr IconLoc ICON_DIR_U_LOC = {5,6};
+constexpr IconLoc ICON_DIR_UR_LOC = {6,6};
+constexpr IconLoc ICON_DIR_R_LOC = {7,6};
+constexpr IconLoc ICON_DIR_DR_LOC = {8,6};
+constexpr IconLoc ICON_DIR_LOCS[] = {
+  ICON_DIR_N_LOC,
+  ICON_DIR_L_LOC, 
+  ICON_DIR_R_LOC,
+  ICON_DIR_U_LOC,
+  ICON_DIR_UL_LOC,
+  ICON_DIR_UR_LOC,
+  ICON_DIR_D_LOC,
+  ICON_DIR_DL_LOC,
+  ICON_DIR_DR_LOC
+};
+
 /* Projected Display Settings */
 constexpr double EXPECTED_DISP_RATIO = 16.0 / 9.0;
 constexpr double PROJECTED_RATIO = 0.0003f;
@@ -73,6 +107,22 @@ struct FLinearColor {
   }
 };
 
+struct FVector2D {
+  float x;
+  float y;
+};
+
+enum EBlendMode {
+  BLEND_Opaque,
+  BLEND_Masked,
+  BLEND_Translucent,
+  BLEND_Additive,
+  BLEND_Modulate,
+  BLEND_AlphaComposite,
+  BLEND_AlphaHoldout,
+  BLEND_MAX
+};
+
 struct DrawRectParams {
   FLinearColor RectColor;
   float ScreenX;
@@ -89,6 +139,24 @@ struct DrawTextParams {
   void* Font;
   float Scale;
   bool bScalePosition;
+};
+
+struct DrawIconParams {
+  void* Texture;
+  float ScreenX;
+  float ScreenY;
+  float ScreenW;
+  float ScreenH;
+  float TextureU;
+  float TextureV;
+  float TextureUWidth;
+  float TextureVHeight;
+  FLinearColor TintColor;
+  EBlendMode BlendMode;
+  float Scale;
+  bool bScalePosition;
+  float Rotation;
+  FVector2D RotPivot;
 };
 
 /* Unreal Constants */
