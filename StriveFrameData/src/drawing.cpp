@@ -275,7 +275,7 @@ public:
   }
   bool checkInput(InputFlag flag) const { return novel_inputs & flag; }
 
-  const IconLoc& getDirLoc(){
+  const IconLoc& getDirLoc() const {
     int offset = 0;
     if(checkInput(IF_Up)) offset += 3;
     else if(checkInput(IF_Down)) offset += 6;
@@ -285,13 +285,16 @@ public:
 
     return ICON_DIR_LOCS[offset];
   }
-  const IconLoc& getButtonLoc(){
+  const IconLoc& getButtonLoc() const {
     if(checkInput(IF_P)) return ICON_BUTTON_P_LOC;
     if(checkInput(IF_K)) return ICON_BUTTON_K_LOC;
     if(checkInput(IF_S)) return ICON_BUTTON_S_LOC;
     if(checkInput(IF_H)) return ICON_BUTTON_H_LOC;
     if(checkInput(IF_Dust)) return ICON_BUTTON_D_LOC;
     return ICON_NULL_LOC;
+  }
+  void debug() const {
+    RC::Output::send<LogLevel::Warning>(STR("Input: {}\n"), novel_inputs);
   }
 };
 
@@ -782,6 +785,7 @@ void initFrames(const GetSizeParams& sizedata, RC::Unreal::UFunction* drawrect, 
 }
 
 void addFrame() {
+  //RedInputChecker(asw_engine::get()->inputs[0]).debug();
   state_data.processFrame();
 }
 

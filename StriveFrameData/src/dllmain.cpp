@@ -22,12 +22,14 @@ class UREDGameCommon : public Unreal::UObject {};
 
 // Functions
 using funcAHUDPostRender_t = void (*)(void*);
+using funcACamUpdateCamera_t = void (*)(void*, float);
 using funcMatchStart_t = void (*)(AREDGameState_Battle*);
 using funcGetGameMode_t = int (*)(UREDGameCommon*);
 using funcUpdateBattle_t = void (*)(AREDGameState_Battle*, float);
 
 // Hooks
 void hook_AHUDPostRender(void*);
+void hook_ACamUpdateCamera(void*, float);
 void hook_MatchStart(AREDGameState_Battle*);
 void hook_UpdateBattle(AREDGameState_Battle*, float);
 
@@ -88,6 +90,7 @@ const void* vtable_hook(const void** vtable, const int index, const void* hook) 
 // Functions
 funcGetGameMode_t orig_GetGameMode;
 funcAHUDPostRender_t orig_AHUDPostRender;
+funcACamUpdateCamera_t orig_ACamUpdateCamera;
 funcMatchStart_t orig_MatchStart;
 funcUpdateBattle_t orig_UpdateBattle;
 
@@ -143,13 +146,17 @@ class AsyncInputChecker {
   }
 
  public:
+  bool advancing() const { return isPaused && shouldAdvance; }
   void pause() {
+    if(advancing()){
+      shouldAdvance = false;
+      return;
+    }
     checkBinds();
     while (isPaused && !shouldAdvance) {
       checkBinds(true);
     }
   }
-  void finishAdvance() { shouldAdvance = false; }
   void reset() {
     isPaused = false;
     shouldAdvance = false;
@@ -183,6 +190,12 @@ class UeTracker {
     /* HUD Rendering vtable hook*/
     const auto** AHUD_vtable = (const void**)get_rip_relative(sigscan::get().scan("\x48\x8D\x05\x00\x00\x00\x00\xC6\x83\x18\x03", "xxx????xxxx") + 3);
     orig_AHUDPostRender = (funcAHUDPostRender_t)vtable_hook(AHUD_vtable, 214, hook_AHUDPostRender);
+
+    const auto** ACamera_vtable = (const void**)get_rip_relative(sigscan::get().scan("\x48\x8D\x05\x00\x00\x00\x00\x48\x8d\x8f\x20\x28\x00\x00", "xxx????xxxxxxx") + 3);
+    orig_ACamUpdateCamera = (funcACamUpdateCamera_t)vtable_hook(ACamera_vtable, 208, hook_ACamUpdateCamera);
+  }
+  void hookCameras() {
+    static auto ucam_class_name = Unreal::FName(STR("Font"), Unreal::FNAME_Add);
   }
   bool setupFont() {
     static auto ufont_class_name = Unreal::FName(STR("Font"), Unreal::FNAME_Add);
@@ -303,11 +316,15 @@ void hook_MatchStart(AREDGameState_Battle* GameState) {
   orig_MatchStart(GameState);
 }
 void hook_AHUDPostRender(void* hud) {
+  if(input_checker.advancing()) return;
   orig_AHUDPostRender(hud);
   if (tracker.isValid() && cfg.overlayEnabled) {
     tracker.draw(hud);
   }
-  input_checker.pause();
+}
+void hook_ACamUpdateCamera(void* cam, float DeltaTime) {
+  if(input_checker.advancing()) return;
+  orig_ACamUpdateCamera(cam, DeltaTime);
 }
 void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
   if (!game_state.checkMode()) {
@@ -315,12 +332,14 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     return;
   }
 
+  input_checker.pause();
+  if(input_checker.advancing()) return;
+
   if (checkForReset()) {
     resetFrames();
   }
 
   orig_UpdateBattle(GameState, DeltaTime);
-  input_checker.finishAdvance();
 
   if (game_state.matchStarted) {
     game_state.matchStarted = false;

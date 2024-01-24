@@ -31,7 +31,8 @@
                 "${workspaceFolder}/build/_deps/zydis-src/include",
                 "${workspaceFolder}/build/_deps/zydis-src/dependencies/zycore/include",
                 "${workspaceFolder}/RE-UE4SS/deps/first/Unreal/generated_include",
-                "${workspaceFolder}/build/_deps/zydis-src/msvc"
+                "${workspaceFolder}/build/_deps/zydis-src/msvc",
+                "${workspaceFolder}/build/_deps/polyhook2-src/asmjit/src"
             ],
             "defines": [
                 "_DEBUG",
