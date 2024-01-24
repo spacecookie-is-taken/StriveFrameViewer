@@ -1,0 +1,51 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${default}",
+                "${workspaceFolder}/StriveFrameData/include",
+                "${workspaceFolder}/RE-UE4SS/UE4SS/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/ArgsParser/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/ASMHelper/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/Constructs/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/DynamicOutput/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/File/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/Function/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/Helpers/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/IniParser/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/Input/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/JSON/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/LuaMadeSimple/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/LuaRaw/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/MProgram/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/ParserBase/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/ScopedTimer/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/SinglePassSigScanner/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/Unreal/include/**",
+                "${workspaceFolder}/build/_deps/glaze-src",
+                "${workspaceFolder}/build/_deps/imgui-src",
+                "${workspaceFolder}/build/_deps/imguitextedit-src",
+                "${workspaceFolder}/build/_deps/polyhook2-src",
+                "${workspaceFolder}/build/_deps/raw_pdb-src",
+                "${workspaceFolder}/build/_deps/zydis-src/include",
+                "${workspaceFolder}/build/_deps/zydis-src/dependencies/zycore/include",
+                "${workspaceFolder}/RE-UE4SS/deps/first/Unreal/generated_include",
+                "${workspaceFolder}/build/_deps/zydis-src/msvc"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE",
+                "UBT_COMPILED_PLATFORM=Win64",
+                "OVERRIDE_PLATFORM_HEADER_NAME=Windows"
+            ],
+            "windowsSdkVersion": "10.0.22621.0",
+            "compilerPath": "cl.exe",
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-msvc-x64"
+        }
+    ],
+    "version": 4
+}
