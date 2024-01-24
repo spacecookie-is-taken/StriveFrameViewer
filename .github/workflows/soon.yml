@@ -1,4 +1,4 @@
-name: MSVC Build
+name: Updated MSVC Build
 on: workflow_dispatch
 
 env:
@@ -31,43 +31,34 @@ jobs:
 
     - name: Build
       working-directory: ${{env.GITHUB_WORKSPACE}}
+      shell: pwsh
       run: |
-        mkdir build
-        cd build
-        cmake -G "Visual Studio 17 2022" ..
-        msbuild /p:Configuration=${{env.BUILD_CONFIGURATION}} .\StriveFrameData\StriveFrameData.sln
-        msbuild /p:Configuration=${{env.BUILD_CONFIGURATION}} .\RE-UE4SS\UE4SS\proxy_generator\proxy\proxy.sln
+        .\Scripts\build_project.ps1
     
     - name: StandalonePackage
       working-directory: ${{env.GITHUB_WORKSPACE}}
+      shell: pwsh
       run: |
-        mkdir standalone\Mods\StriveFrameViewer\dlls
-        mkdir standalone\UE4SS_Signatures
-        cp .\build\StriveFrameData\${{env.BUILD_CONFIGURATION}}\StriveFrameData.dll .\standalone\Mods\StriveFrameViewer\dlls\main.dll
-        cp .\build\Output\${{env.BUILD_CONFIGURATION}}\proxy\bin\dwmapi.dll .\standalone\dwmapi.dll
-        cp .\build\Output\${{env.BUILD_CONFIGURATION}}\UE4SS\bin\UE4SS.dll .\standalone\UE4SS.dll
-        cp .\prereqs\mods.txt .\standalone\Mods\mods.txt
-        cp .\prereqs\UE4SS-settings.ini .\standalone\UE4SS-settings.ini
-        cp .\prereqs\FText_Constructor.lua .\standalone\UE4SS_Signatures\FText_Constructor.lua
+        .\Scripts\package_standalone.ps1
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v3.1.1
       with:
         name: StriveFrameViewer_Standalone
-        path: ${{github.workspace}}\standalone\
+        path: ${{github.workspace}}\Packages\Standalone\
         if-no-files-found: error
 
     - name: UnverumPackage
       working-directory: ${{env.GITHUB_WORKSPACE}}
+      shell: pwsh
       run: |
-        mkdir unverum\ue4ss\StriveFrameViewer\dlls
-        cp .\build\StriveFrameData\${{env.BUILD_CONFIGURATION}}\StriveFrameData.dll .\unverum\ue4ss\StriveFrameViewer\dlls\main.dll
+        .\Scripts\package_unverum.ps1
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v3.1.1
       with:
         name: StriveFrameViewer_Unverum
-        path: ${{github.workspace}}\unverum\
+        path: ${{github.workspace}}\Packages\Unverum\
         if-no-files-found: error
 
 
