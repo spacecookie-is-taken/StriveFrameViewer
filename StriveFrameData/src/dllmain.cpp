@@ -67,15 +67,6 @@ enum GAME_MODE : int32_t {
 
 /* Utilities */
 
-bool checkForReset() {
-  auto* events = asw_events::get();
-  auto count = events->event_count;
-  if (count > 10) count = 10;
-  for (unsigned int idx = 0; idx < count; ++idx) {
-    if (events->events[idx].type == BOM_EVENT_BATTLE_START) return true;
-  }
-  return false;
-}
 const void* vtable_hook(const void** vtable, const int index, const void* hook) {
   DWORD old_protect;
   VirtualProtect(&vtable[index], sizeof(void*), PAGE_READWRITE, &old_protect);
@@ -118,7 +109,28 @@ class StateMgr {
     }
     return in_allowed_mode;
   }
+  void checkRound() {
+    resetting = false;
+    auto* events = asw_events::get();
+    auto count = events->event_count;
+    if (count > 10) count = 10;
+    for (unsigned int idx = 0; idx < count; ++idx) {
+      auto e_type = events->events[idx].type;
+      //if(e_type < 41) RC::Output::send<LogLevel::Warning>(STR("Event {}: {}\n"), idx, (int)e_type);
+      if(e_type == BOM_EVENT_RESET || e_type == BOM_EVENT_DECISION) {
+        resetting = true;
+        roundActive = false;
+      }
+      if (e_type == BOM_EVENT_BATTLE_START) {
+        resetting = true;
+        roundActive = true;
+      };
+    }
+  }
+
+  bool resetting = false;
   bool matchStarted = true;
+  bool roundActive = false;
 
 } game_state;
 struct ConfigMgr {
@@ -310,6 +322,7 @@ class UeTracker {
 
 void hook_MatchStart(AREDGameState_Battle* GameState) {
   game_state.matchStarted = true;
+  game_state.roundActive = false;
   input_checker.reset();
   tracker.reset();
 
@@ -335,7 +348,8 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
   input_checker.pause();
   if(input_checker.advancing()) return;
 
-  if (checkForReset()) {
+  game_state.checkRound();
+  if (game_state.resetting) {
     resetFrames();
   }
 
@@ -346,7 +360,7 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
     tracker.setup();
   }
 
-  if (!tracker.isUePaused()) {
+  if (!tracker.isUePaused() && game_state.roundActive) {
     addFrame();
   }
 }
