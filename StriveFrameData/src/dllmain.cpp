@@ -258,7 +258,6 @@ public:
 /* Hooks */
 
 FrameBar the_bar;
-ModMenu the_menu;
 
 void hook_MatchStart(AREDGameState_Battle *GameState) {
   game_state.matchStarted = true;
@@ -280,9 +279,10 @@ void hook_AHUDPostRender(void *hud) {
 
   if (!DrawTool::instance().update(hud)) return;
 
-  the_menu.draw();
-  if(the_menu.barEnabled()) the_bar.draw();
-  if(the_menu.hitboxEnabled()) drawAllBoxes();
+  auto& menu = ModMenu::instance();
+  menu.draw();
+  if(menu.barEnabled()) the_bar.draw();
+  if(menu.hitboxEnabled()) drawAllBoxes();
 }
 void hook_ACamUpdateCamera(void *cam, float DeltaTime) {
   if (!game_state.checkMode()) {
@@ -302,7 +302,7 @@ void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
   input_checker.pause();
   if (input_checker.advancing()) return;
 
-  the_menu.update(input_checker.framebar_toggled, input_checker.hitbox_toggled, input_checker.menu_toggled);
+  ModMenu::instance().update(input_checker.framebar_toggled, input_checker.hitbox_toggled, input_checker.menu_toggled);
   input_checker.framebar_toggled = false;
   input_checker.hitbox_toggled = false;
   input_checker.menu_toggled = false;

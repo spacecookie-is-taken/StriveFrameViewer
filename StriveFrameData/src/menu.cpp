@@ -97,6 +97,57 @@ namespace {
 
   FLinearColor background_color{0.2f, 0.2f, 0.2f, 0.8f};
   FLinearColor cursor_color{0.5f, 0.0f, 0.0f, 1.0f};
+
+  static const Pallete color_palletes[] = {
+    Pallete{ // SF6
+      FLinearColor{(201.f/255.f), (128.f/255.f), (0.f/255.f), 1.f}, 
+      {
+        FLinearColor{(26.f/255.f), (26.f/255.f), (26.f/255.f), 1.f}, // IDLE
+        FLinearColor{(253.f/255.f), (245.f/255.f), (46.f/255.f), 1.f}, // Block
+        FLinearColor{(253.f/255.f), (245.f/255.f), (46.f/255.f), 1.f}, // Hit
+        FLinearColor{(1.f/255.f), (182.f/255.f), (149.f/255.f), 1.f}, // Busy
+        FLinearColor{(205.f/255.f), (43.f/255.f), (103.f/255.f), 1.f}, // Attacking
+        FLinearColor{(1.f/255.f), (111.f/255.f), (188.f/255.f), 1.f}, // Projectile
+        FLinearColor{(1.f/255.f), (111.f/255.f), (188.f/255.f), 1.f}  // Recovering
+      }
+    },
+    Pallete{ // CLASSIC
+      FLinearColor{.8f, .1f, .1f, 1.f}, 
+      {
+        FLinearColor{.2f, .2f, .2f, .9f}, // IDLE
+        FLinearColor{.1f, .1f, .8f, .9f}, // Block
+        FLinearColor{.1f, .6f, .1f, .9f}, // Hit
+        FLinearColor{.7f, .7f, .1f, .9f}, // Busy
+        FLinearColor{.8f, .1f, .1f, .9f}, // Attacking
+        FLinearColor{.8f, .4f, .1f, .9f}, // Projectile
+        FLinearColor{.8f, .4f, .1f, .9f}  // Recovering
+      }
+    },
+    Pallete{ // DUSTLOOP
+      FLinearColor{(255.f/255.f), (0.f/255.f), (0.f/255.f), 1.f}, 
+      {
+        FLinearColor{(128.f/255.f), (128.f/255.f), (128.f/255.f), 1.f}, // IDLE
+        FLinearColor{(233.f/255.f), (215.f/255.f), (4.f/255.f), 1.f}, // Block
+        FLinearColor{(233.f/255.f), (215.f/255.f), (4.f/255.f), 1.f}, // Hit
+        FLinearColor{(54.f/255.f), (179.f/255.f), (126.f/255.f), 1.f}, // Busy
+        FLinearColor{(255.f/255.f), (93.f/255.f), (93.f/255.f), 1.f}, // Attacking
+        FLinearColor{(0.f/255.f), (105.f/255.f), (182.f/255.f), 1.f}, // Projectile
+        FLinearColor{(0.f/255.f), (105.f/255.f), (182.f/255.f), 1.f}  // Recovering
+      }
+    },
+    Pallete{ // COLORBLIND
+      FLinearColor{.8f, .1f, .1f, 1.f}, 
+      {
+        FLinearColor{.2f, .2f, .2f, .9f}, // IDLE
+        FLinearColor{.1f, .1f, .8f, .9f}, // Block
+        FLinearColor{.1f, .6f, .1f, .9f}, // Hit
+        FLinearColor{.7f, .7f, .1f, .9f}, // Busy
+        FLinearColor{.8f, .1f, .1f, .9f}, // Attacking
+        FLinearColor{.8f, .4f, .1f, .9f}, // Projectile
+        FLinearColor{.8f, .4f, .1f, .9f}  // Recovering
+      }
+    },
+  };
 }
 
 size_t rotateVal(size_t val, bool positive, size_t max){
@@ -116,8 +167,12 @@ void ModMenu::changeSetting(size_t idx, bool right) {
   relevant = rotateVal(relevant, right, options[idx].count);
 }
 
+ModMenu& ModMenu::instance(){
+  static ModMenu me;
+  return me;
+}
 
-
+ModMenu::~ModMenu() = default;
 ModMenu::ModMenu() 
 : tool(CENTER_X_RATIO, CENTER_Y_RATIO) {
   settings.resize(OPTION_COUNT, 1);
@@ -155,4 +210,8 @@ void ModMenu::draw() {
     tool.drawOutlinedText(OPTION_LEFT, top, FString(relevant.title), 2.0);
     tool.drawOutlinedText(VALUE_LEFT, top, FString(relevant.values[settings[idx]]), 2.0);
   }
+}
+
+const Pallete& ModMenu::getScheme() const {
+  return color_palletes[settings[3]];
 }

@@ -26,23 +26,19 @@ If the training mode reset is triggered or both players don't input a move for 2
 Additionally, there are some space saving features. If a segment of frames is longer than 5 frames, the total length will be displayed as text. If an animation is in hitstun or counterhit stun, where animation is freezed, the frames will be dropped to save space. If both players have been in the same state for more than 10 frames, the segments will be "truncated" to save space. 
 
 ## Controls
-- F2: Pause/Resume the game
-- F3: (if paused) advance the game by one frame
-- F4: Configure "Training mode reset" button (currently defaults to the right thumbstick button, and is not saved)
-- Control + O: Open the external mod management GUI
-
-## Options
-In the external mod management GUI, there is a "Strive Frame Data" tab. This tab lets you configure the mods options.
-- Enable Overlay: Show or hide the overlay. This does not disable the mod, it just hides it from the UI.
-
+- F1: Toggle Frame bar
+- F2: Toggle Hitboxes
+- F3: Pause/Resume the game
+- F4: Advance the game by one frame (if paused)
+- F5: Open mod menu
 
 ## TODO:
 - Display hitboxes
 - Fix Leo backstance move lengths
 - Add data about largest gap for each player
-- Add options menu
 - Save options between game sessions
 - Some command throws don't show active frames
+- RWA and BWA aren't counting for frames
 
 
 ## Disabling

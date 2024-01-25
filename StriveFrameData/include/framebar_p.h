@@ -3,6 +3,7 @@
 
 #include "arcsys.h"
 #include "draw_utils.h"
+#include "menu.h"
 
 #include <utility>
 
@@ -67,8 +68,9 @@ public:
 };
 
 struct FrameInfo {
-  FLinearColor color;
-  FLinearColor border;
+  PlayerStateType type = PST_None;
+  double decay = 1.0;
+  bool border = false;
   int trunc = 0;
 };
 
@@ -120,8 +122,7 @@ struct FrameBar::Data {
     func(&data.second, args...);
   }*/
 
-  void drawFrame(const FrameInfo &info, int top, int left);
-  void updateActiveSection(const PlayerState &state, int previous_time, FrameInfo &active, FrameInfo &previous);
+  void drawFrame(const Pallete& scheme, bool fade, const FrameInfo &info, int top, int left);
   void resetFrames();
 
   Data();

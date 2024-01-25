@@ -52,17 +52,7 @@ namespace {
   FLinearColor color_invisible{1.f, 1.f, 1.f, 0.f};
   FLinearColor color_white{1.f, 1.f, 1.f, 1.f};
   FLinearColor color_black{0.f, 0.f, 0.f, 1.f};
-  FLinearColor projectile_color{.8f, .1f, .1f, 1.f};
   FLinearColor background_color{0.05f, 0.05f, 0.05f, 0.7f};
-  static const FLinearColor state_colors[] = {
-      FLinearColor{.2f, .2f, .2f, .9f}, // Gray
-      FLinearColor{.1f, .1f, .8f, .9f}, // Blue
-      FLinearColor{.1f, .6f, .1f, .9f}, // Green
-      FLinearColor{.7f, .7f, .1f, .9f}, // Yellow
-      FLinearColor{.8f, .1f, .1f, .9f}, // Red
-      FLinearColor{.8f, .4f, .1f, .9f}, // Orange
-      FLinearColor{.8f, .4f, .1f, .9f}  // Orange
-  };
 }
 
 // ############################################################
@@ -264,9 +254,11 @@ void PlayerData::updateSegment(int prev_idx, int curr_idx) {
   auto &active = segments[curr_idx];
   previous.trunc = 0;
 
+  active.type = current_state.type;
+
   if (current_state.state_time == 1) {
     DEBUG_PRINT(STR("New Section for One\n"));
-    active.color = state_colors[current_state.type];
+    active.decay = 1.0;
     // ... and was long enough that we want to print length
     if (previous_state.state_time > COMBO_NUM_TIME) {
       DEBUG_PRINT(STR("Last section requires truncating\n"));
@@ -276,9 +268,9 @@ void PlayerData::updateSegment(int prev_idx, int curr_idx) {
     DEBUG_PRINT(STR("Same Section for One\n"));
     // we are drawing this section, fade its color slightly
     // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
-    active.color = previous.color * COLOR_DECAY;
+    active.decay = previous.decay * COLOR_DECAY;
   }
-  active.border = current_state.anyProjectiles() ? projectile_color : color_invisible;
+  active.border = current_state.anyProjectiles();
 }
 
 // ############################################################
@@ -300,8 +292,8 @@ void PlayerData::updateMove() {
 }
 void PlayerData::initSegment(int curr_idx) {
   auto &active_segment = segments[curr_idx];
-  active_segment.color = state_colors[current_state.type];
-  active_segment.border = current_state.anyProjectiles() ? projectile_color : color_invisible;
+  active_segment.type = current_state.type;
+  active_segment.border = current_state.anyProjectiles();
 }
 void PlayerData::truncSegment(int prev_idx) {
   auto &prev_segment = segments[prev_idx];
@@ -310,7 +302,7 @@ void PlayerData::truncSegment(int prev_idx) {
 
 void PlayerData::fadeSegment(int fade_idx) {
   auto &fade_segment = segments[fade_idx];
-  fade_segment.color.A = 0.f;
+  fade_segment.type = PST_None;
 }
 
 // ############################################################
@@ -395,12 +387,15 @@ FrameBar::Data::Data()
   resetFrames();
 }
 
-void FrameBar::Data::drawFrame(const FrameInfo &info, int top, int left) {
-  if (info.color.A != 0.f) {
-    if (info.border.A != 0.f) {
-      tool.drawRect(left - BORDER_THICKNESS, top - BORDER_THICKNESS, SEG_WIDTH + 2 * BORDER_THICKNESS, SEG_HEIGHT + 2 * BORDER_THICKNESS, info.border);
+void FrameBar::Data::drawFrame(const Pallete& scheme, bool fade, const FrameInfo &info, int top, int left) {
+  if (info.type != PST_None) {
+    if (info.border) {
+      tool.drawRect(left - BORDER_THICKNESS, top - BORDER_THICKNESS, SEG_WIDTH + 2 * BORDER_THICKNESS, SEG_HEIGHT + 2 * BORDER_THICKNESS, scheme.projectile_color);
     }
-    tool.drawRect(left, top, SEG_WIDTH, SEG_HEIGHT, info.color);
+
+    auto color = scheme.state_colors[info.type];
+    if(fade) color = color * info.decay;
+    tool.drawRect(left, top, SEG_WIDTH, SEG_HEIGHT, color);
     if (info.trunc > 0) {
       auto text = std::to_wstring(info.trunc);
       int text_left = left - (text.size() - 1) * 16 + 2;
@@ -412,27 +407,6 @@ void FrameBar::Data::drawFrame(const FrameInfo &info, int top, int left) {
 void FrameBar::Data::resetFrames() {
   current_segment_idx = 0;
   doBoth(&PlayerData::resetFrames);
-}
-
-void FrameBar::Data::updateActiveSection(const PlayerState &state, int previous_time, FrameInfo &active, FrameInfo &previous) {
-  // previous section has ended
-  previous.trunc = 0;
-
-  if (state.state_time == 1) {
-    DEBUG_PRINT(STR("New Section for One\n"));
-    active.color = state_colors[state.type];
-    // ... and was long enough that we want to print length
-    if (previous_time > COMBO_NUM_TIME) {
-      DEBUG_PRINT(STR("Last section requires truncating\n"));
-      previous.trunc = previous_time;
-    }
-  } else {
-    DEBUG_PRINT(STR("Same Section for One\n"));
-    // we are drawing this section, fade its color slightly
-    // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
-    active.color = previous.color * COLOR_DECAY;
-  }
-  active.border = state.anyProjectiles() ? projectile_color : color_invisible;
 }
 
 void FrameBar::Data::addFrame() {
@@ -563,6 +537,10 @@ void FrameBar::Data::reset() {
 void FrameBar::Data::draw() {
   tool.update();
 
+  auto& menu = ModMenu::instance();
+  auto& scheme = menu.getScheme();
+  bool fade = menu.fadeEnabled();
+
   auto player_one_info = makeStatsText(data.first.displayed_stats, advantage);
   auto player_two_info = makeStatsText(data.second.displayed_stats, -advantage);
 
@@ -574,8 +552,8 @@ void FrameBar::Data::draw() {
 
   for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
     int left = BAR_LEFT + (SEG_TOTAL * idx) + SEG_SPACING;
-    drawFrame(data.first.segments[idx], SEGS_ONE_TOP, left);
-    drawFrame(data.second.segments[idx], SEGS_TWO_TOP, left);
+    drawFrame(scheme, fade, data.first.segments[idx], SEGS_ONE_TOP, left);
+    drawFrame(scheme, fade, data.second.segments[idx], SEGS_TWO_TOP, left);
   }
 }
 
