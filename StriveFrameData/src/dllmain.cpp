@@ -5,6 +5,7 @@
 #include "draw_utils.h"
 #include "framebar.h"
 #include "hitboxes.h"
+#include "menu.h"
 #include "sigscan.h"
 
 #include <DynamicOutput/DynamicOutput.hpp>
@@ -143,19 +144,38 @@ struct ConfigMgr {
   bool fadeEnabled = true;
   int resetButton = 7;
 } cfg;
+
+constexpr int TOGGLE_FRAMEBAR_BUTTON = VK_F1;
+constexpr int TOGGLE_HITBOX_BUTTON = VK_F2;
+constexpr int PAUSE_BUTTON = VK_F3;
+constexpr int ADVANCE_BUTTON = VK_F4;
+constexpr int TOGGLE_MENU_BUTTON = VK_F5;
+
 class AsyncInputChecker {
-  int pauseButton = VK_F2;
-  int advanceButton = VK_F3;
   bool isPaused = false;
   bool shouldAdvance = false;
 
   void checkBinds(bool await = false) {
     auto inputs = BindWatcherI::getInputs(await);
     for (const auto &input : inputs) {
-      if (input == pauseButton) {
-        isPaused = !isPaused;
-      } else if (input == advanceButton) {
-        shouldAdvance = true;
+      switch (input){
+        case TOGGLE_FRAMEBAR_BUTTON:
+          framebar_toggled = true;
+          break;
+        case TOGGLE_HITBOX_BUTTON:
+          hitbox_toggled = true;
+          break;
+        case PAUSE_BUTTON:
+          isPaused = !isPaused;
+          break;
+        case ADVANCE_BUTTON:
+          shouldAdvance = true;
+          break;
+        case TOGGLE_MENU_BUTTON:
+          menu_toggled = true;
+          break;
+        default:
+          break;
       }
     }
   }
@@ -176,7 +196,12 @@ public:
     isPaused = false;
     shouldAdvance = false;
   }
+
+  bool framebar_toggled = false;
+  bool hitbox_toggled = false;
+  bool menu_toggled = false;
 } input_checker;
+
 class UeTracker {
   Unreal::UObject *worldsets_actor = nullptr;
   Unreal::FProperty *paused_prop = nullptr;
@@ -233,6 +258,7 @@ public:
 /* Hooks */
 
 FrameBar the_bar;
+ModMenu the_menu;
 
 void hook_MatchStart(AREDGameState_Battle *GameState) {
   game_state.matchStarted = true;
@@ -243,7 +269,7 @@ void hook_MatchStart(AREDGameState_Battle *GameState) {
   orig_MatchStart(GameState);
 }
 void hook_AHUDPostRender(void *hud) {
-  if (!game_state.checkMode()){
+  if (!game_state.checkMode()) {
     orig_AHUDPostRender(hud);
     return;
   }
@@ -252,13 +278,14 @@ void hook_AHUDPostRender(void *hud) {
 
   orig_AHUDPostRender(hud);
 
-  if (DrawTool::instance().update(hud) && cfg.overlayEnabled) {
-    drawAllBoxes();
-    the_bar.draw();
-  }
+  if (!DrawTool::instance().update(hud)) return;
+
+  the_menu.draw();
+  if(the_menu.barEnabled()) the_bar.draw();
+  if(the_menu.hitboxEnabled()) drawAllBoxes();
 }
 void hook_ACamUpdateCamera(void *cam, float DeltaTime) {
-  if (!game_state.checkMode()){
+  if (!game_state.checkMode()) {
     orig_ACamUpdateCamera(cam, DeltaTime);
     return;
   }
@@ -274,6 +301,11 @@ void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
 
   input_checker.pause();
   if (input_checker.advancing()) return;
+
+  the_menu.update(input_checker.framebar_toggled, input_checker.hitbox_toggled, input_checker.menu_toggled);
+  input_checker.framebar_toggled = false;
+  input_checker.hitbox_toggled = false;
+  input_checker.menu_toggled = false;
 
   game_state.checkRound();
   if (game_state.resetting) {
@@ -333,8 +365,11 @@ public:
     ASWInitFunctions();
     bbscript::BBSInitializeFunctions();
 
-    BindWatcherI::addToFilter(VK_F2);
-    BindWatcherI::addToFilter(VK_F3);
+    BindWatcherI::addToFilter(TOGGLE_FRAMEBAR_BUTTON);
+    BindWatcherI::addToFilter(TOGGLE_HITBOX_BUTTON);
+    BindWatcherI::addToFilter(PAUSE_BUTTON);
+    BindWatcherI::addToFilter(ADVANCE_BUTTON);
+    BindWatcherI::addToFilter(TOGGLE_MENU_BUTTON);
   }
 };
 
