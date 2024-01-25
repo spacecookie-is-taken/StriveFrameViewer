@@ -2,8 +2,7 @@
 
 #include "common.h"
 
-class FrameBar
-{
+class FrameBar {
   PIMPL
 
 public:

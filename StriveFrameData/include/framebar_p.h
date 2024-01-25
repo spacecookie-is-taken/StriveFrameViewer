@@ -1,14 +1,13 @@
 #pragma once
-#include "framebar.h"
-#include "draw_utils.h"
 #include "arcsys.h"
+#include "draw_utils.h"
+#include "framebar.h"
 
 #include <utility>
 
 constexpr int FRAME_SEGMENTS = 120;
 
-enum PlayerStateType
-{
+enum PlayerStateType {
   PST_Idle = 0,
   PST_BlockStunned,
   PST_HitStunned,
@@ -20,25 +19,21 @@ enum PlayerStateType
   PST_End
 };
 
-struct ProjectileTracker
-{
-  struct ProjectileInfo
-  {
+struct ProjectileTracker {
+  struct ProjectileInfo {
     asw_entity *direct_parent;
     asw_entity *root_parent;
     bool alive;
     int old;           // 0: brand new (protected), 1: not new, 2: marked old
     int hit_delay = 2; // this entity has hit something already and should not be considered for further damage
 
-    ProjectileInfo(asw_entity *source)
-    {
+    ProjectileInfo(asw_entity *source) {
       direct_parent = source->parent_obj;
       root_parent = direct_parent;
       alive = true;
       old = 0;
     }
-    ProjectileInfo(asw_entity *source, const std::pair<asw_entity *, ProjectileInfo> &parent_info)
-    {
+    ProjectileInfo(asw_entity *source, const std::pair<asw_entity *, ProjectileInfo> &parent_info) {
       direct_parent = parent_info.first;
       root_parent = parent_info.second.root_parent;
       alive = true;
@@ -54,8 +49,7 @@ struct ProjectileTracker
   void reset() { ownership.clear(); }
 };
 
-struct PlayerState
-{
+struct PlayerState {
   bool any_prjt = false;
 
 public:
@@ -71,44 +65,59 @@ public:
   bool anyProjectiles() const { return (type == PST_ProjectileAttacking) || any_prjt; }
 };
 
-struct FrameInfo
-{
+struct FrameInfo {
   FLinearColor color;
   FLinearColor border;
   int trunc = 0;
 };
 
-struct MoveStats
-{
+struct MoveStats {
   int startup = 0;
   std::vector<std::pair<int, int>> actives{{0, 0}};
   void update(const PlayerState &current);
 };
 
-struct PlayerData
-{
+struct PlayerData {
   FrameInfo segments[FRAME_SEGMENTS];
   MoveStats working_stats;
   MoveStats displayed_stats;
   PlayerState previous_state;
   PlayerState current_state;
 
+  void resetFrames();
+  void initSegment(int curr_idx);
+  void truncSegment(int prev_idx);
+  void fadeSegment(int fade_idx);
   void updateSegment(int prev_idx, int curr_idx);
+  void updateMove();
+  void shift(const PlayerState &data);
 };
 
-struct FrameBar::Data
-{
+struct FrameBar::Data {
   DrawContext tool;
   bool combo_active = false;
   int current_segment_idx = 0;
   bool tracking_advantage = false;
   int advantage = 0;
-  std::pair<FrameInfo, FrameInfo> segments[FRAME_SEGMENTS];
-  std::pair<MoveStats, MoveStats> working_stats;
-  std::pair<MoveStats, MoveStats> displayed_stats;
-  std::pair<PlayerState, PlayerState> previous_state;
-  std::pair<PlayerState, PlayerState> current_state;
-  // std::pair<PlayerData, PlayerData> data;
+  std::pair<PlayerData, PlayerData> data;
+
+  /*template <class RetT, std::enable_if<!std::is_void_v<RetT>>, class... ArgT>
+  std::pair<RetT, RetT> doBoth(RetT (PlayerData::*func)(ArgT...), ArgT... args)
+  {
+    return {data.first.*func(args...), data.second.*func(args...)};
+  }*/
+  template <class... ArgT>
+  void doBoth(void (PlayerData::*func)(ArgT...), ArgT... args) {
+    (data.first.*func)(args...);
+    (data.second.*func)(args...);
+  }
+
+  /*template <class FuncT, class... ArgT>
+  void doBoth(const std::function<FuncT> &func, ArgT... args)
+  {
+    func(&data.first, args...);
+    func(&data.second, args...);
+  }*/
 
   void drawFrame(const FrameInfo &info, int top, int left);
   void updateActiveSection(const PlayerState &state, int previous_time, FrameInfo &active, FrameInfo &previous);

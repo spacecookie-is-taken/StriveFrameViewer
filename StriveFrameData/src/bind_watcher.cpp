@@ -1,8 +1,8 @@
 #include "bind_watcher.h"
 
-#include <mutex>
-#include <condition_variable>
 #include <bitset>
+#include <condition_variable>
+#include <mutex>
 
 #include <Windows.h>
 
@@ -23,7 +23,7 @@ class BindWorker {
     UnhookWindowsHookEx(kbh);
   }
 
- public:
+public:
   BindWorker() {
     isRunning = true;
     worker_thread = std::thread(&BindWorker::run, this);
@@ -47,21 +47,23 @@ class BindWatcher {
   bool markKey(DWORD code) {
     std::lock_guard state_lock(state_mutex);
     if (!filter.test(code)) return false;
-    if(inputs.size() > 100) inputs.erase( inputs.begin() ); // only store latest 100 inputs
+    if (inputs.size() > 100) inputs.erase(inputs.begin()); // only store latest 100 inputs
     inputs.push_back(code);
     return true;
   }
 
   BindWatcher() = default;
- public:
+
+public:
   ~BindWatcher() = default;
 
   void addToFilter(unsigned long code) { filter.set(code, true); }
 
   std::vector<int> getInputs(bool await) {
     std::unique_lock state_lock(state_mutex);
-    if(await) {
-      while (inputs.empty()) await_con.wait(state_lock);
+    if (await) {
+      while (inputs.empty())
+        await_con.wait(state_lock);
     }
     std::vector<int> result;
     result.swap(inputs);
@@ -70,14 +72,14 @@ class BindWatcher {
 
   LRESULT callback(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode >= HC_ACTION && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
-      KBDLLHOOKSTRUCT& k = *(KBDLLHOOKSTRUCT*)lParam;
+      KBDLLHOOKSTRUCT &k = *(KBDLLHOOKSTRUCT *)lParam;
 
       if (markKey(k.vkCode)) await_con.notify_all();
     }
     return worker.callNext(nCode, wParam, lParam);
   }
-  
-  static BindWatcher& instance() {
+
+  static BindWatcher &instance() {
     static BindWatcher singleton;
     return singleton;
   }

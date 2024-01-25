@@ -9,8 +9,7 @@
 #define ENABLE_PRJT_DEBUG false
 #define ENABLE_STATE_DEBUG false
 
-namespace
-{
+namespace {
   /* Combo Triger Settings */
   constexpr int COMBO_ENDED_TIME = 20; // time idle before combo is considered over
   constexpr int COMBO_NUM_TIME = 5;    // minimum time of unchanging states to display state length
@@ -69,8 +68,7 @@ namespace
 // ############################################################
 // Helpers
 
-std::wstring convertToWide(const std::string_view &str)
-{
+std::wstring convertToWide(const std::string_view &str) {
   if (str.empty())
     return std::wstring();
   int size_needed = MultiByteToWideChar(CP_UTF8, 0, &str[0], (int)str.size(), NULL, 0);
@@ -79,12 +77,10 @@ std::wstring convertToWide(const std::string_view &str)
   return wstrTo;
 }
 
-std::wstring makeStatsText(const MoveStats &stats, int advantage)
-{
+std::wstring makeStatsText(const MoveStats &stats, int advantage) {
   std::wstringstream builder;
   builder << L"Startup: " << stats.startup << ", Active: ";
-  for (int idx = 0; idx < stats.actives.size() - 1; ++idx)
-  {
+  for (int idx = 0; idx < stats.actives.size() - 1; ++idx) {
     auto &focus = stats.actives[idx];
     builder << focus.first << L"(" << focus.second << ")";
   }
@@ -93,37 +89,19 @@ std::wstring makeStatsText(const MoveStats &stats, int advantage)
   return builder.str();
 }
 
-template <class... ArgT>
-void doBoth(std::pair<PlayerData, PlayerData> &data, void (PlayerData::*func)(ArgT...), ArgT... args)
-{
-  data.first.*func(args...);
-  data.second.*func(args...);
-}
-
-template <class FuncT, class... ArgT>
-void doBoth(std::pair<PlayerData, PlayerData> &data, const std::function<FuncT> &func, ArgT... args)
-{
-  func(&data.first, args...);
-  func(&data.second, args...);
-}
-
 // ############################################################
 // ProjectileTracker
 
-void ProjectileTracker::markOld(asw_player &player)
-{
+void ProjectileTracker::markOld(asw_player &player) {
   // assumes a move will never spawn a projectile frame 1
-  for (auto &iter : ownership)
-  {
-    if (iter.second.root_parent == &player && iter.second.old != 0)
-    {
+  for (auto &iter : ownership) {
+    if (iter.second.root_parent == &player && iter.second.old != 0) {
       iter.second.old = 2;
     }
   }
 }
 
-void ProjectileTracker::processFrame()
-{
+void ProjectileTracker::processFrame() {
   // assumes if an entity at &p was destroyed and a new entity is created at &p, any new entities that point to &p as their parent refer to the new one
   const auto engine = asw_engine::get();
   if (!engine)
@@ -135,54 +113,41 @@ void ProjectileTracker::processFrame()
     return;
 
   // mark all old pointers as dead until seen in the current frame
-  for (auto &iter : ownership)
-  {
+  for (auto &iter : ownership) {
     iter.second.alive = false;
     if (iter.second.old == 0)
       iter.second.old = 1;
   }
 
   // check for in-frame reassignment
-  for (int idx = 0; idx < engine->entity_count; ++idx)
-  {
+  for (int idx = 0; idx < engine->entity_count; ++idx) {
     auto *focus = engine->entities[idx], *parent = focus->parent_obj;
-    if (auto iter = ownership.find(focus); iter != ownership.end())
-    {
-      if (iter->second.direct_parent != parent)
-      {
+    if (auto iter = ownership.find(focus); iter != ownership.end()) {
+      if (iter->second.direct_parent != parent) {
         RC::Output::send<LogLevel::Warning>(STR("PSFP re-assign: {}, Old Parent: {}, New Parent: {}\n"), (void *)focus, (void *)iter->second.direct_parent, (void *)parent);
         ownership.erase(focus);
-      }
-      else
-      {
+      } else {
         iter->second.alive = true;
       }
     }
   }
 
   // create new infos and link parents
-  for (int idx = 0; idx < engine->entity_count; ++idx)
-  {
+  for (int idx = 0; idx < engine->entity_count; ++idx) {
     auto *focus = engine->entities[idx], *parent = focus->parent_obj;
     if (focus == player_one || focus == player_two)
       continue;
     bool old = false;
-    if (ownership.find(focus) == ownership.end())
-    {
-      if (auto parent_iter = ownership.find(parent); parent_iter != ownership.end())
-      {
+    if (ownership.find(focus) == ownership.end()) {
+      if (auto parent_iter = ownership.find(parent); parent_iter != ownership.end()) {
         old = parent_iter->second.old;
         ownership.emplace(focus, ProjectileInfo(focus, *parent_iter));
-      }
-      else
-      {
+      } else {
         ownership.emplace(focus, ProjectileInfo(focus));
       }
     }
-    for (auto &iter : ownership)
-    {
-      if (iter.second.root_parent == focus)
-      {
+    for (auto &iter : ownership) {
+      if (iter.second.root_parent == focus) {
         iter.second.root_parent = parent;
         iter.second.old = old;
       }
@@ -190,16 +155,14 @@ void ProjectileTracker::processFrame()
   }
 
   // remove any dead elements
-  for (auto first = ownership.begin(), last = ownership.end(); first != last;)
-  {
+  for (auto first = ownership.begin(), last = ownership.end(); first != last;) {
     if (!first->second.alive)
       first = ownership.erase(first);
     else
       ++first;
   }
 }
-void ProjectileTracker::debugDump()
-{
+void ProjectileTracker::debugDump() {
   constexpr const wchar_t *age_vals[] = {L"NEW", L"EXIST", L"OLD"};
 
   const auto engine = asw_engine::get();
@@ -210,8 +173,7 @@ void ProjectileTracker::debugDump()
   asw_player *player_two = engine->players[1].entity;
 
   auto format = STR("Prjt script:{}, sprite:{}, ptr:{}, par:{}, pt:{}, old:{}, dmg:{}, hit:{}, act:{}\n");
-  for (auto &iter : ownership)
-  {
+  for (auto &iter : ownership) {
     auto *focus = iter.first, *top_parent = iter.second.root_parent;
     auto bb_script = convertToWide(focus->get_BB_state());
     auto sprite = convertToWide(focus->get_sprite_name());
@@ -235,13 +197,11 @@ ProjectileTracker ptracker;
     "Bit Shift Metron" / "AttackMagic_10"
     "RMS Boost Metron" / "AttackMagic_11"
 */
-bool shouldBeActive(std::pair<asw_entity *const, ProjectileTracker::ProjectileInfo> &info_pair)
-{
+bool shouldBeActive(std::pair<asw_entity *const, ProjectileTracker::ProjectileInfo> &info_pair) {
   const auto bbscript = std::string_view(info_pair.first->get_BB_state());
 
   // see above, these 4 break the assumptions that cover every other projectile, and I'm fucking tired
-  if (bbscript.size() == 14 && bbscript.substr(0, 12) == "AttackMagic_")
-  {
+  if (bbscript.size() == 14 && bbscript.substr(0, 12) == "AttackMagic_") {
     auto AM_num = bbscript.substr(12, 2);
     if (AM_num == "01" || AM_num == "03" || AM_num == "10" || AM_num == "11")
       return true;
@@ -267,8 +227,7 @@ bool shouldBeActive(std::pair<asw_entity *const, ProjectileTracker::ProjectileIn
   // to compensate for projectiles that "should" be active but are self deactivating frame-0
   // we artificially extend their lifetime just long enough for our purposes.
   int damage = info_pair.first->atk_param_hit.damage;
-  if (damage > 0 && info_pair.second.hit_delay)
-  {
+  if (damage > 0 && info_pair.second.hit_delay) {
     --info_pair.second.hit_delay;
     return true;
   }
@@ -278,45 +237,42 @@ bool shouldBeActive(std::pair<asw_entity *const, ProjectileTracker::ProjectileIn
 // ############################################################
 // MoveStats
 
-void MoveStats::update(const PlayerState &current)
-{
-  if (current.type == PST_Busy)
-  {
+void MoveStats::update(const PlayerState &current) {
+  if (current.type == PST_Busy) {
     startup = current.state_time + 1;
-  }
-  else if (current.type == PST_Attacking || current.type == PST_ProjectileAttacking)
-  {
+  } else if (current.type == PST_Attacking || current.type == PST_ProjectileAttacking) {
     // this is a new attack
     if (actives.back().second > 0)
       actives.push_back({0, 0});
     actives.back().first = current.state_time;
-  }
-  else if (current.type == PST_Recovering)
-  {
+  } else if (current.type == PST_Recovering) {
     actives.back().second = current.state_time;
   }
 }
 
-void PlayerData::updateSegment(int prev_idx, int curr_idx)
-{
+void PlayerData::resetFrames() {
+  current_state.state_time = 1;
+  previous_state.state_time = 1;
+  working_stats = MoveStats();
+  for (int idx = 0; idx < FRAME_SEGMENTS; ++idx)
+    segments[idx] = FrameInfo();
+}
+
+void PlayerData::updateSegment(int prev_idx, int curr_idx) {
   // previous section has ended
   auto &previous = segments[prev_idx];
   auto &active = segments[curr_idx];
   previous.trunc = 0;
 
-  if (current_state.state_time == 1)
-  {
+  if (current_state.state_time == 1) {
     DEBUG_PRINT(STR("New Section for One\n"));
     active.color = state_colors[current_state.type];
     // ... and was long enough that we want to print length
-    if (previous_state.state_time > COMBO_NUM_TIME)
-    {
+    if (previous_state.state_time > COMBO_NUM_TIME) {
       DEBUG_PRINT(STR("Last section requires truncating\n"));
       previous.trunc = previous_state.state_time;
     }
-  }
-  else
-  {
+  } else {
     DEBUG_PRINT(STR("Same Section for One\n"));
     // we are drawing this section, fade its color slightly
     // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
@@ -324,20 +280,48 @@ void PlayerData::updateSegment(int prev_idx, int curr_idx)
   }
   active.border = current_state.anyProjectiles() ? projectile_color : color_invisible;
 }
-// FrameBar::Data::updateActiveSection(const PlayerState& state, int previous_time, FrameInfo& active, FrameInfo& previous)
-// updateActiveSection(current_state.first, previous_state.first.state_time, active_segment.first, prev_segment.first);
+
+// ############################################################
+// PlayerData
+
+void PlayerData::shift(const PlayerState &next) {
+  previous_state = current_state;
+  current_state = next;
+}
+void PlayerData::updateMove() {
+  if (current_state.time > 1) {
+    working_stats.update(current_state);
+    if (working_stats.actives.front().first > 0) {
+      displayed_stats = working_stats;
+    }
+  } else {
+    working_stats = MoveStats();
+  }
+}
+void PlayerData::initSegment(int curr_idx) {
+  auto &active_segment = segments[curr_idx];
+  active_segment.color = state_colors[current_state.type];
+  active_segment.border = current_state.anyProjectiles() ? projectile_color : color_invisible;
+}
+void PlayerData::truncSegment(int prev_idx) {
+  auto &prev_segment = segments[prev_idx];
+  prev_segment.trunc = current_state.state_time;
+}
+
+void PlayerData::fadeSegment(int fade_idx) {
+  auto &fade_segment = segments[fade_idx];
+  fade_segment.color.A = 0.f;
+}
 
 // ############################################################
 // PlayerState
 
-PlayerState::PlayerState(asw_player &player, const PlayerState &last)
-{
+PlayerState::PlayerState(asw_player &player, const PlayerState &last) {
   time = player.action_time;
 
   // assumes a sprite won't come out on this frame, this is false
   const bool same_script = time > 1;
-  if (!same_script)
-  {
+  if (!same_script) {
     ptracker.markOld(player);
   }
 
@@ -349,8 +333,7 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last)
   const bool player_active = player.is_active() && (player.hitbox_count > 0 || player.throw_range >= 0);
 
   bool projectile_active = false;
-  for (auto &iter : ptracker.ownership)
-  {
+  for (auto &iter : ptracker.ownership) {
     if (iter.second.root_parent != &player || !shouldBeActive(iter))
       continue;
     any_prjt |= !player_active || (iter.second.old == 2);
@@ -376,24 +359,19 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last)
 
   // active stall prevents the first active frame (before the hit is registered) from appearing active
   // this helps match Dustloop and looks more intuitive
-  if (player_active || projectile_active)
-  {
+  if (player_active || projectile_active) {
     active_stall = true;
   }
 
   // state_time is used for determining how long was spent in each PST state for a single BB state script
   // type != PST_Busy to prevent interuptible post move animations (that are idle equivalent) or chained stuns from breaking segments
-  if ((same_script || type != PST_Busy) && last.type == type)
-  {
+  if ((same_script || type != PST_Busy) && last.type == type) {
     state_time = (last.state_time < 1000) ? last.state_time + 1 : last.state_time;
-  }
-  else
-  {
+  } else {
     state_time = 1;
   }
 
-  if constexpr (ENABLE_STATE_DEBUG)
-  {
+  if constexpr (ENABLE_STATE_DEBUG) {
     auto format = STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, plact:{}, pjact:{}, any:{}, st:{}, cin:{}, hbc:{}, trw:{}\n");
     std::wstring local_script = convertToWide(player.get_BB_state());
     std::wstring local_sprite = convertToWide(player.get_sprite_name());
@@ -413,22 +391,17 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last)
 // FrameBar::Data
 
 FrameBar::Data::Data()
-    : tool(CENTER_X_RATIO, CENTER_Y_RATIO)
-{
+: tool(CENTER_X_RATIO, CENTER_Y_RATIO) {
   resetFrames();
 }
 
-void FrameBar::Data::drawFrame(const FrameInfo &info, int top, int left)
-{
-  if (info.color.A != 0.f)
-  {
-    if (info.border.A != 0.f)
-    {
+void FrameBar::Data::drawFrame(const FrameInfo &info, int top, int left) {
+  if (info.color.A != 0.f) {
+    if (info.border.A != 0.f) {
       tool.drawRect(left - BORDER_THICKNESS, top - BORDER_THICKNESS, SEG_WIDTH + 2 * BORDER_THICKNESS, SEG_HEIGHT + 2 * BORDER_THICKNESS, info.border);
     }
     tool.drawRect(left, top, SEG_WIDTH, SEG_HEIGHT, info.color);
-    if (info.trunc > 0)
-    {
+    if (info.trunc > 0) {
       auto text = std::to_wstring(info.trunc);
       int text_left = left - (text.size() - 1) * 16 + 2;
       tool.drawOutlinedText(text_left, top, Unreal::FString(text.c_str()), BAR_TEXT_SIZE);
@@ -436,40 +409,24 @@ void FrameBar::Data::drawFrame(const FrameInfo &info, int top, int left)
   }
 }
 
-void FrameBar::Data::resetFrames()
-{
+void FrameBar::Data::resetFrames() {
   current_segment_idx = 0;
-  current_state.first.state_time = 1;
-  current_state.second.state_time = 1;
-  previous_state.first.state_time = 1;
-  previous_state.second.state_time = 1;
-  working_stats = std::make_pair(MoveStats(), MoveStats());
-  for (int idx = 0; idx < FRAME_SEGMENTS; ++idx)
-  {
-    segments[idx] = std::make_pair(FrameInfo(), FrameInfo());
-    // data.first.segments[idx] = FrameInfo();
-    // data.second.segments[idx] = FrameInfo();
-  }
+  doBoth(&PlayerData::resetFrames);
 }
 
-void FrameBar::Data::updateActiveSection(const PlayerState &state, int previous_time, FrameInfo &active, FrameInfo &previous)
-{
+void FrameBar::Data::updateActiveSection(const PlayerState &state, int previous_time, FrameInfo &active, FrameInfo &previous) {
   // previous section has ended
   previous.trunc = 0;
 
-  if (state.state_time == 1)
-  {
+  if (state.state_time == 1) {
     DEBUG_PRINT(STR("New Section for One\n"));
     active.color = state_colors[state.type];
     // ... and was long enough that we want to print length
-    if (previous_time > COMBO_NUM_TIME)
-    {
+    if (previous_time > COMBO_NUM_TIME) {
       DEBUG_PRINT(STR("Last section requires truncating\n"));
       previous.trunc = previous_time;
     }
-  }
-  else
-  {
+  } else {
     DEBUG_PRINT(STR("Same Section for One\n"));
     // we are drawing this section, fade its color slightly
     // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
@@ -478,8 +435,7 @@ void FrameBar::Data::updateActiveSection(const PlayerState &state, int previous_
   active.border = state.anyProjectiles() ? projectile_color : color_invisible;
 }
 
-void FrameBar::Data::addFrame()
-{
+void FrameBar::Data::addFrame() {
   const auto engine = asw_engine::get();
   if (!engine)
     return;
@@ -489,67 +445,54 @@ void FrameBar::Data::addFrame()
 
   // update projectiles, even during hitstun
   ptracker.processFrame();
-  if constexpr (ENABLE_PRJT_DEBUG)
-  {
+  if constexpr (ENABLE_PRJT_DEBUG) {
     RC::Output::send<LogLevel::Warning>(STR("PTracker Pre:\n"));
     ptracker.debugDump();
   }
 
   // crate updated states
   std::pair<PlayerState, PlayerState> next = {
-      PlayerState(p_one, current_state.first),
-      PlayerState(p_two, current_state.second)};
+      PlayerState(p_one, data.first.current_state),
+      PlayerState(p_two, data.second.current_state)};
 
-  if (p_one.cinematic_counter || p_two.cinematic_counter)
-  {
-    if constexpr (ENABLE_STATE_DEBUG)
-    {
+  if (p_one.cinematic_counter || p_two.cinematic_counter) {
+    if constexpr (ENABLE_STATE_DEBUG) {
       RC::Output::send<LogLevel::Warning>(STR("CINEMATIC SKIP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
     }
     return;
   }
   // covers COUNTER HIT, this might cover all cases
-  else if ((next.first.time == current_state.first.time && next.first.time > 1 && (next.second.type == PST_HitStunned || next.second.type == PST_BlockStunned)) || (next.second.time == current_state.second.time && next.second.time > 1 && (next.first.type == PST_HitStunned || next.first.type == PST_BlockStunned)))
-  {
-    if constexpr (ENABLE_STATE_DEBUG)
-    {
+  else if ((next.first.time == data.first.current_state.time && next.first.time > 1 && (next.second.type == PST_HitStunned || next.second.type == PST_BlockStunned)) || (next.second.time == data.second.current_state.time && next.second.time > 1 && (next.first.type == PST_HitStunned || next.first.type == PST_BlockStunned))) {
+    if constexpr (ENABLE_STATE_DEBUG) {
       RC::Output::send<LogLevel::Warning>(STR("STUN SKIP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
     }
     return;
-  }
-  else if constexpr (ENABLE_STATE_DEBUG)
-  {
+  } else if constexpr (ENABLE_STATE_DEBUG) {
     RC::Output::send<LogLevel::Warning>(STR("KEEP {} {} {} {}\n"), p_one.hitstop, p_one.atk_param_hit.hitstop, p_two.hitstop, p_two.hitstop);
   }
 
   // shift states
-  previous_state.first = current_state.first;
-  previous_state.second = current_state.second;
-  current_state = next;
+  data.first.shift(next.first);
+  data.second.shift(next.second);
 
-  if constexpr (ENABLE_PRJT_DEBUG)
-  {
+  if constexpr (ENABLE_PRJT_DEBUG) {
     RC::Output::send<LogLevel::Warning>(STR("PTracker Post:\n"));
     ptracker.debugDump();
   }
 
   // end combo if we've been idle for a long time
-  if (current_state.first.type == PST_Idle && current_state.second.type == PST_Idle)
-  {
-    if (!combo_active)
-    {
+  if (data.first.current_state.type == PST_Idle && data.second.current_state.type == PST_Idle) {
+    if (!combo_active) {
       return;
     }
-    if (current_state.first.state_time > COMBO_ENDED_TIME && current_state.second.state_time > COMBO_ENDED_TIME)
-    {
+    if (data.first.current_state.state_time > COMBO_ENDED_TIME && data.second.current_state.state_time > COMBO_ENDED_TIME) {
       DEBUG_PRINT(STR("Combo ended\n"));
       combo_active = false;
       return;
     }
   }
   // reset if this is a new combo
-  else if (!combo_active)
-  {
+  else if (!combo_active) {
     DEBUG_PRINT(STR("Combo reset\n"));
     resetFrames();
   }
@@ -557,128 +500,71 @@ void FrameBar::Data::addFrame()
   DEBUG_PRINT(STR("Frame {}\n"), current_segment_idx);
 
   // update move info
-  if (current_state.first.time > 1)
-  {
-    working_stats.first.update(current_state.first);
-    if (working_stats.first.actives.front().first > 0)
-    {
-      displayed_stats.first = working_stats.first;
-    }
-  }
-  else
-  {
-    working_stats.first = MoveStats();
-  }
-
-  if (current_state.second.time > 1)
-  {
-    working_stats.second.update(current_state.second);
-    if (working_stats.second.actives.front().first > 0)
-    {
-      displayed_stats.second = working_stats.second;
-    }
-  }
-  else
-  {
-    working_stats.second = MoveStats();
-  }
+  doBoth(&PlayerData::updateMove);
 
   // update advantage
-  if (!tracking_advantage)
-  {
-    if (current_state.first.isStunned() || current_state.second.isStunned())
-    {
+  if (!tracking_advantage) {
+    if (data.first.current_state.isStunned() || data.second.current_state.isStunned()) {
       advantage = 0;
       tracking_advantage = true;
     }
-  }
-  else
-  {
-    if (current_state.first.type == PST_Idle)
-    {
-      if (current_state.second.type == PST_Idle)
-      {
+  } else {
+    if (data.first.current_state.type == PST_Idle) {
+      if (data.second.current_state.type == PST_Idle) {
         tracking_advantage = false;
-      }
-      else
-      {
+      } else {
         ++advantage;
       }
-    }
-    else
-    {
-      if (current_state.second.type == PST_Idle)
-      {
+    } else {
+      if (data.second.current_state.type == PST_Idle) {
         --advantage;
-      }
-      else
-      {
+      } else {
         advantage = 0;
       }
     }
   }
 
   // update frame display
-
-  auto &active_segment = segments[current_segment_idx];
-
-  // only trigger truncation logic if mid-combo
-  if (combo_active)
-  {
+  if (combo_active) { // only trigger truncation logic if mid-combo
     DEBUG_PRINT(STR("Is Active\n"));
     int prev_idx = (current_segment_idx + FRAME_SEGMENTS - 1) % FRAME_SEGMENTS;
-    auto &prev_segment = segments[prev_idx];
 
     // we are truncating, update truncated
-    if (current_state.first.state_time > COMBO_TRUNC_TIME && current_state.second.state_time > COMBO_TRUNC_TIME)
-    {
-      prev_segment.first.trunc = current_state.first.state_time;
-      prev_segment.second.trunc = current_state.second.state_time;
-      DEBUG_PRINT(STR("Truncating 1:{}, 2:{}\n"), prev_segment.trunc_one, prev_segment.trunc_two);
+    if (data.first.current_state.state_time > COMBO_TRUNC_TIME && data.second.current_state.state_time > COMBO_TRUNC_TIME) {
+      doBoth(&PlayerData::truncSegment, prev_idx);
       return;
     }
 
-    // doBoth(data, &PlayerData::updateSegment, prev_idx, current_segment_idx);
-
-    updateActiveSection(current_state.first, previous_state.first.state_time, active_segment.first, prev_segment.first);
-    updateActiveSection(current_state.second, previous_state.second.state_time, active_segment.second, prev_segment.second);
-  }
-  else
-  {
+    doBoth(&PlayerData::updateSegment, prev_idx, current_segment_idx);
+  } else {
     DEBUG_PRINT(STR("Was not Active\n"));
-    active_segment.first.color = state_colors[current_state.first.type];
-    active_segment.first.border = current_state.first.anyProjectiles() ? projectile_color : color_invisible;
-    active_segment.second.color = state_colors[current_state.second.type];
-    active_segment.second.border = current_state.second.anyProjectiles() ? projectile_color : color_invisible;
+
+    doBoth(&PlayerData::initSegment, current_segment_idx);
   }
 
   // fade effect, clear segments near tail
-  auto &fade_segment = segments[(current_segment_idx + FADE_DISTANCE) % FRAME_SEGMENTS];
-  fade_segment.first.color.A = 0.f;
-  fade_segment.second.color.A = 0.f;
+  int fade_idx = (current_segment_idx + FADE_DISTANCE) % FRAME_SEGMENTS;
+  doBoth(&PlayerData::fadeSegment, fade_idx);
 
   // advance to next segment
-  if (++current_segment_idx >= FRAME_SEGMENTS)
-  {
+  if (++current_segment_idx >= FRAME_SEGMENTS) {
     DEBUG_PRINT(STR("Cycling segment index\n"));
     current_segment_idx = 0;
   }
 
   combo_active = true;
 }
-void FrameBar::Data::reset()
-{
+void FrameBar::Data::reset() {
   combo_active = false;
-  current_state.first = PlayerState();
-  current_state.second = PlayerState();
+  data.first.current_state = PlayerState();
+  data.second.current_state = PlayerState();
   ptracker.reset();
 }
-void FrameBar::Data::draw()
-{
+void FrameBar::Data::draw() {
   tool.update();
 
-  auto player_one_info = makeStatsText(displayed_stats.first, advantage);
-  auto player_two_info = makeStatsText(displayed_stats.second, -advantage);
+  auto player_one_info = makeStatsText(data.first.displayed_stats, advantage);
+  auto player_two_info = makeStatsText(data.second.displayed_stats, -advantage);
 
   tool.drawOutlinedText(BAR_LEFT, INFO_ONE_LOC, Unreal::FString(player_one_info.c_str()), BAR_TEXT_SIZE);
   tool.drawOutlinedText(BAR_LEFT, INFO_TWO_LOC, Unreal::FString(player_two_info.c_str()), BAR_TEXT_SIZE);
@@ -686,18 +572,16 @@ void FrameBar::Data::draw()
   tool.drawRect(BAR_LEFT, BAR_ONE_TOP, BAR_WIDTH, BAR_HEIGHT, background_color);
   tool.drawRect(BAR_LEFT, BAR_TWO_TOP, BAR_WIDTH, BAR_HEIGHT, background_color);
 
-  for (int idx = 0; idx < FRAME_SEGMENTS; ++idx)
-  {
+  for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
     int left = BAR_LEFT + (SEG_TOTAL * idx) + SEG_SPACING;
-    const auto &segment = segments[idx];
-
-    drawFrame(segment.first, SEGS_ONE_TOP, left);
-    drawFrame(segment.second, SEGS_TWO_TOP, left);
+    drawFrame(data.first.segments[idx], SEGS_ONE_TOP, left);
+    drawFrame(data.second.segments[idx], SEGS_TWO_TOP, left);
   }
 }
 
 FrameBar::~FrameBar() = default;
-FrameBar::FrameBar() : data(new Data()) {}
+FrameBar::FrameBar()
+: data(new Data()) {}
 void FrameBar::addFrame() { d().addFrame(); }
 void FrameBar::reset() { d().reset(); }
 void FrameBar::draw() { d().draw(); }

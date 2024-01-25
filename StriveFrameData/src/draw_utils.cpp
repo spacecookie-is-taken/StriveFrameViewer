@@ -1,7 +1,6 @@
 #include "draw_utils.h"
 
-namespace
-{
+namespace {
   constexpr double EXPECTED_DISP_RATIO = 16.0 / 9.0;
   constexpr double PROJECTED_RATIO = 0.0003f;
   constexpr double OUTLINE_THICKNESS = 1.5;
@@ -13,29 +12,24 @@ namespace
 DrawTool::DrawTool() = default;
 DrawTool::~DrawTool() = default;
 
-DrawTool &DrawTool::instance()
-{
+DrawTool &DrawTool::instance() {
   static DrawTool me;
   return me;
 }
 
-Unreal::UObject *getFont()
-{
+Unreal::UObject *getFont() {
   static auto ufont_class_name = Unreal::FName(STR("Font"), Unreal::FNAME_Add);
   std::vector<RC::Unreal::UObject *> all_fonts;
   UObjectGlobals::FindAllOf(ufont_class_name, all_fonts);
-  for (auto *font : all_fonts)
-  {
-    if (font->GetName() == L"RobotoDistanceField")
-    {
+  for (auto *font : all_fonts) {
+    if (font->GetName() == L"RobotoDistanceField") {
       return font;
     }
   }
   return nullptr;
 }
 
-void DrawTool::initialize()
-{
+void DrawTool::initialize() {
   valid = false;
 
   static auto hud_class_name = Unreal::FName(STR("REDHUD_Battle"), Unreal::FNAME_Add);
@@ -70,8 +64,7 @@ void DrawTool::initialize()
   update(ref_hud);
 }
 
-bool DrawTool::update(void *actual_hud)
-{
+bool DrawTool::update(void *actual_hud) {
   if (!valid || actual_hud != ref_hud)
     return false;
 
@@ -83,20 +76,16 @@ bool DrawTool::update(void *actual_hud)
 
   // Strive always renders to a 16:9 region, we need to fix this here since our size data is the "true" screen space window size
   const double actual_ratio = screen_width / screen_height;
-  if (actual_ratio > EXPECTED_DISP_RATIO)
-  { // 21:9 Ultrawide monitor probably
+  if (actual_ratio > EXPECTED_DISP_RATIO) { // 21:9 Ultrawide monitor probably
     screen_width = screen_height * EXPECTED_DISP_RATIO;
-  }
-  else if (actual_ratio < EXPECTED_DISP_RATIO)
-  { // 4:3 or 16:10 monitor probably
+  } else if (actual_ratio < EXPECTED_DISP_RATIO) { // 4:3 or 16:10 monitor probably
     screen_height = screen_width / EXPECTED_DISP_RATIO;
   }
   units = screen_width * PROJECTED_RATIO;
   return true;
 }
 
-void DrawTool::drawOutlinedText(double left, double top, const Unreal::FString &text, double scale) const
-{
+void DrawTool::drawOutlinedText(double left, double top, const Unreal::FString &text, double scale) const {
 #if 1 // cardinals
   drawText(left - OUTLINE_THICKNESS, top, text, color_black, scale);
   drawText(left, top - OUTLINE_THICKNESS, text, color_black, scale);

@@ -1,14 +1,12 @@
 #pragma once
 
-#include <UnrealDef.hpp>
 #include <UE4SSProgram.hpp>
+#include <UnrealDef.hpp>
 
-struct FLinearColor
-{
+struct FLinearColor {
   float R = 0.f, G = 0.f, B = 0.f, A = 0.f;
 
-  FLinearColor operator*(float mod) const
-  {
+  FLinearColor operator*(float mod) const {
     FLinearColor result = *this;
     result.R *= mod;
     result.G *= mod;
@@ -17,8 +15,7 @@ struct FLinearColor
   }
 };
 
-enum EBlendMode
-{
+enum EBlendMode {
   BLEND_Opaque,
   BLEND_Masked,
   BLEND_Translucent,
@@ -29,29 +26,24 @@ enum EBlendMode
   BLEND_MAX
 };
 
-struct FVector2D
-{
+struct FVector2D {
   float x;
   float y;
 };
 
-namespace DrawParams
-{
-  struct Size
-  {
+namespace DrawParams {
+  struct Size {
     int32_t SizeX = 0;
     int32_t SizeY = 0;
   };
-  struct Rect
-  {
+  struct Rect {
     FLinearColor RectColor;
     float ScreenX;
     float ScreenY;
     float ScreenW;
     float ScreenH;
   };
-  struct Text
-  {
+  struct Text {
     RC::Unreal::FString Text;
     FLinearColor TextColor;
     float ScreenX;
@@ -60,8 +52,7 @@ namespace DrawParams
     float Scale;
     bool bScalePosition;
   };
-  struct Icon
-  {
+  struct Icon {
     void *Texture;
     float ScreenX;
     float ScreenY;
@@ -80,8 +71,7 @@ namespace DrawParams
   };
 }
 
-class DrawTool
-{
+class DrawTool {
   bool valid = false;
   Unreal::UObject *ref_hud = nullptr;
   Unreal::UObject *ref_player = nullptr;
@@ -110,8 +100,7 @@ public:
   double getUnits() const { return units; }
 
   // params are in screen space coordinates
-  void drawRect(double left, double top, double width, double height, const FLinearColor &color) const
-  {
+  void drawRect(double left, double top, double width, double height, const FLinearColor &color) const {
     DrawParams::Rect params{
         color,
         static_cast<float>(left),
@@ -120,8 +109,7 @@ public:
         static_cast<float>(height)};
     ref_hud->ProcessEvent(ref_drawrect, &params);
   }
-  void drawText(double left, double top, const Unreal::FString &text, const FLinearColor &color, double scale) const
-  {
+  void drawText(double left, double top, const Unreal::FString &text, const FLinearColor &color, double scale) const {
     DrawParams::Text params{
         text,
         color,
@@ -136,8 +124,7 @@ public:
 };
 
 // handles transformation from draw space to screen space
-class DrawContext
-{
+class DrawContext {
   double ratio_x;
   double ratio_y;
   double center_offset_x = 0.0;
@@ -146,18 +133,18 @@ class DrawContext
 
 public:
   DrawContext(double x, double y)
-      : ratio_x(x), ratio_y(y), tool(&DrawTool::instance()) // storing it is faster than the singleton access due to imposed thread safety
+  : ratio_x(x)
+  , ratio_y(y)
+  , tool(&DrawTool::instance()) // storing it is faster than the singleton access due to imposed thread safety
   {
   }
-  void update()
-  {
+  void update() {
     center_offset_x = ratio_x * tool->getWidth();
     center_offset_y = ratio_y * tool->getHeight();
   }
 
   // params are in draw space coordinates
-  void drawRect(int x, int y, int width, int height, const FLinearColor &color) const
-  {
+  void drawRect(int x, int y, int width, int height, const FLinearColor &color) const {
     double units = tool->getUnits();
     double prj_x = center_offset_x + (units * x);
     double prj_y = center_offset_y + (units * y);
@@ -165,8 +152,7 @@ public:
     double prj_height = units * height;
     tool->drawRect(prj_x, prj_y, prj_width, prj_height, color);
   }
-  void drawOutlinedText(int x, int y, const Unreal::FString &text, double scale) const
-  {
+  void drawOutlinedText(int x, int y, const Unreal::FString &text, double scale) const {
     double units = tool->getUnits();
     double prj_x = center_offset_x + (units * x);
     double prj_y = center_offset_y + (units * y);

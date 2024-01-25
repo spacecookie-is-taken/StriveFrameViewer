@@ -1,15 +1,15 @@
-#include <polyhook2/Detour/x64Detour.hpp>
-#include "sigscan.h"
 #include "arcsys.h"
+#include "bind_watcher.h"
 #include "draw_utils.h"
 #include "framebar.h"
-#include "bind_watcher.h"
+#include "sigscan.h"
+#include <polyhook2/Detour/x64Detour.hpp>
 
-#include <UE4SSProgram.hpp>
-#include <UnrealDef.hpp>
-#include <Unreal/World.hpp>
-#include <Mod/CppUserModBase.hpp>
 #include <DynamicOutput/DynamicOutput.hpp>
+#include <Mod/CppUserModBase.hpp>
+#include <UE4SSProgram.hpp>
+#include <Unreal/World.hpp>
+#include <UnrealDef.hpp>
 
 #define WIN32_LEAN_AND_MEAN
 #include "Windows.h"
@@ -22,17 +22,17 @@
 class UREDGameCommon : public Unreal::UObject {};
 
 // Functions
-using funcAHUDPostRender_t = void (*)(void*);
-using funcACamUpdateCamera_t = void (*)(void*, float);
-using funcMatchStart_t = void (*)(AREDGameState_Battle*);
-using funcGetGameMode_t = int (*)(UREDGameCommon*);
-using funcUpdateBattle_t = void (*)(AREDGameState_Battle*, float);
+using funcAHUDPostRender_t = void (*)(void *);
+using funcACamUpdateCamera_t = void (*)(void *, float);
+using funcMatchStart_t = void (*)(AREDGameState_Battle *);
+using funcGetGameMode_t = int (*)(UREDGameCommon *);
+using funcUpdateBattle_t = void (*)(AREDGameState_Battle *, float);
 
 // Hooks
-void hook_AHUDPostRender(void*);
-void hook_ACamUpdateCamera(void*, float);
-void hook_MatchStart(AREDGameState_Battle*);
-void hook_UpdateBattle(AREDGameState_Battle*, float);
+void hook_AHUDPostRender(void *);
+void hook_ACamUpdateCamera(void *, float);
+void hook_MatchStart(AREDGameState_Battle *);
+void hook_UpdateBattle(AREDGameState_Battle *, float);
 
 // Enums
 enum GAME_MODE : int32_t {
@@ -68,12 +68,12 @@ enum GAME_MODE : int32_t {
 
 /* Utilities */
 
-const void* vtable_hook(const void** vtable, const int index, const void* hook) {
+const void *vtable_hook(const void **vtable, const int index, const void *hook) {
   DWORD old_protect;
-  VirtualProtect(&vtable[index], sizeof(void*), PAGE_READWRITE, &old_protect);
-  const auto* orig = vtable[index];
+  VirtualProtect(&vtable[index], sizeof(void *), PAGE_READWRITE, &old_protect);
+  const auto *orig = vtable[index];
   vtable[index] = hook;
-  VirtualProtect(&vtable[index], sizeof(void*), old_protect, &old_protect);
+  VirtualProtect(&vtable[index], sizeof(void *), old_protect, &old_protect);
   return orig;
 }
 
@@ -87,20 +87,19 @@ funcMatchStart_t orig_MatchStart;
 funcUpdateBattle_t orig_UpdateBattle;
 
 // State Data
-UE4SSProgram* Program;
+UE4SSProgram *Program;
 
 // Trackers
 class StateMgr {
-  UREDGameCommon* GameCommon = nullptr;
-  ;
+  UREDGameCommon *GameCommon = nullptr;
   int last_mode = GAME_MODE_DEBUG_BATTLE;
   bool in_allowed_mode = false;
   std::vector<int> allowed_modes = {GAME_MODE_TRAINING, GAME_MODE_REPLAY};
 
- public:
+public:
   bool checkMode() {
     if (!GameCommon) {
-      GameCommon = reinterpret_cast<UREDGameCommon*>(UObjectGlobals::FindFirstOf(FName(STR("REDGameCommon"))));
+      GameCommon = reinterpret_cast<UREDGameCommon *>(UObjectGlobals::FindFirstOf(FName(STR("REDGameCommon"))));
     }
     if (!GameCommon) return false;
     if (int current_mode = orig_GetGameMode(GameCommon); current_mode != last_mode) {
@@ -112,13 +111,13 @@ class StateMgr {
   }
   void checkRound() {
     resetting = false;
-    auto* events = asw_events::get();
+    auto *events = asw_events::get();
     auto count = events->event_count;
     if (count > 10) count = 10;
     for (unsigned int idx = 0; idx < count; ++idx) {
       auto e_type = events->events[idx].type;
-      //if(e_type < 41) RC::Output::send<LogLevel::Warning>(STR("Event {}: {}\n"), idx, (int)e_type);
-      if(e_type == BOM_EVENT_RESET || e_type == BOM_EVENT_DECISION) {
+      // if(e_type < 41) RC::Output::send<LogLevel::Warning>(STR("Event {}: {}\n"), idx, (int)e_type);
+      if (e_type == BOM_EVENT_RESET || e_type == BOM_EVENT_DECISION) {
         resetting = true;
         roundActive = false;
       }
@@ -149,7 +148,7 @@ class AsyncInputChecker {
 
   void checkBinds(bool await = false) {
     auto inputs = BindWatcherI::getInputs(await);
-    for (const auto& input : inputs) {
+    for (const auto &input : inputs) {
       if (input == pauseButton) {
         isPaused = !isPaused;
       } else if (input == advanceButton) {
@@ -158,10 +157,10 @@ class AsyncInputChecker {
     }
   }
 
- public:
+public:
   bool advancing() const { return isPaused && shouldAdvance; }
   void pause() {
-    if(advancing()){
+    if (advancing()) {
       shouldAdvance = false;
       return;
     }
@@ -176,8 +175,8 @@ class AsyncInputChecker {
   }
 } input_checker;
 class UeTracker {
-  Unreal::UObject* worldsets_actor = nullptr;
-  Unreal::FProperty* paused_prop = nullptr;
+  Unreal::UObject *worldsets_actor = nullptr;
+  Unreal::FProperty *paused_prop = nullptr;
   bool renderingHooked = false;
 
   void hookFuncs() {
@@ -185,33 +184,32 @@ class UeTracker {
     renderingHooked = true;
 
     /* HUD Rendering vtable hook*/
-    const auto** AHUD_vtable = (const void**)get_rip_relative(sigscan::get().scan("\x48\x8D\x05\x00\x00\x00\x00\xC6\x83\x18\x03", "xxx????xxxx") + 3);
+    const auto **AHUD_vtable = (const void **)get_rip_relative(sigscan::get().scan("\x48\x8D\x05\x00\x00\x00\x00\xC6\x83\x18\x03", "xxx????xxxx") + 3);
     orig_AHUDPostRender = (funcAHUDPostRender_t)vtable_hook(AHUD_vtable, 214, hook_AHUDPostRender);
 
-    const auto** ACamera_vtable = (const void**)get_rip_relative(sigscan::get().scan("\x48\x8D\x05\x00\x00\x00\x00\x48\x8d\x8f\x20\x28\x00\x00", "xxx????xxxxxxx") + 3);
+    const auto **ACamera_vtable = (const void **)get_rip_relative(sigscan::get().scan("\x48\x8D\x05\x00\x00\x00\x00\x48\x8d\x8f\x20\x28\x00\x00", "xxx????xxxxxxx") + 3);
     orig_ACamUpdateCamera = (funcACamUpdateCamera_t)vtable_hook(ACamera_vtable, 208, hook_ACamUpdateCamera);
   }
   void findProp() {
     static auto input_class_name = Unreal::FName(STR("REDPlayerController_Battle"), Unreal::FNAME_Add);
     static auto getworldsets_func_name = Unreal::FName(STR("K2_GetWorldSettings"), Unreal::FNAME_Add);
 
-    auto* input_actor = static_cast<Unreal::AActor*>(UObjectGlobals::FindFirstOf(input_class_name));
+    auto *input_actor = static_cast<Unreal::AActor *>(UObjectGlobals::FindFirstOf(input_class_name));
     if (!input_actor) return;
 
-    auto* world_actor = input_actor->GetWorld();
+    auto *world_actor = input_actor->GetWorld();
     if (!world_actor) return;
 
-    auto* getworldsets_func = world_actor->GetFunctionByNameInChain(getworldsets_func_name);
+    auto *getworldsets_func = world_actor->GetFunctionByNameInChain(getworldsets_func_name);
     if (!getworldsets_func) return;
 
-    
     world_actor->ProcessEvent(getworldsets_func, &worldsets_actor);
     if (!worldsets_actor) return;
 
     paused_prop = worldsets_actor->GetPropertyByName(STR("PauserPlayerState"));
   }
 
- public:
+public:
   void reset() {
     worldsets_actor = nullptr;
     paused_prop = nullptr;
@@ -224,7 +222,7 @@ class UeTracker {
   }
   bool isUePaused() {
     if (!paused_prop) return false;
-    Unreal::AActor** val = static_cast<Unreal::AActor**>(paused_prop->ContainerPtrToValuePtr<void>(worldsets_actor));
+    Unreal::AActor **val = static_cast<Unreal::AActor **>(paused_prop->ContainerPtrToValuePtr<void>(worldsets_actor));
     return (bool)val ? ((bool)*val) : false;
   }
 } tracker;
@@ -233,7 +231,7 @@ class UeTracker {
 
 FrameBar the_bar;
 
-void hook_MatchStart(AREDGameState_Battle* GameState) {
+void hook_MatchStart(AREDGameState_Battle *GameState) {
   game_state.matchStarted = true;
   game_state.roundActive = false;
   input_checker.reset();
@@ -241,26 +239,26 @@ void hook_MatchStart(AREDGameState_Battle* GameState) {
 
   orig_MatchStart(GameState);
 }
-void hook_AHUDPostRender(void* hud) {
-  if(input_checker.advancing()) return;
+void hook_AHUDPostRender(void *hud) {
+  if (input_checker.advancing()) return;
   orig_AHUDPostRender(hud);
 
   if (DrawTool::instance().update(hud) && cfg.overlayEnabled) {
     the_bar.draw();
   }
 }
-void hook_ACamUpdateCamera(void* cam, float DeltaTime) {
-  if(input_checker.advancing()) return;
+void hook_ACamUpdateCamera(void *cam, float DeltaTime) {
+  if (input_checker.advancing()) return;
   orig_ACamUpdateCamera(cam, DeltaTime);
 }
-void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
+void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
   if (!game_state.checkMode()) {
     orig_UpdateBattle(GameState, DeltaTime);
     return;
   }
 
   input_checker.pause();
-  if(input_checker.advancing()) return;
+  if (input_checker.advancing()) return;
 
   game_state.checkRound();
   if (game_state.resetting) {
@@ -282,9 +280,9 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
 
 /* Mod Definition */
 class StriveFrameData : public CppUserModBase {
- public:
-  PLH::x64Detour* UpdateBattle_Detour;
-  PLH::x64Detour* MatchStart_Detour;
+public:
+  PLH::x64Detour *UpdateBattle_Detour;
+  PLH::x64Detour *MatchStart_Detour;
 
   StriveFrameData()
   : CppUserModBase() {
@@ -307,11 +305,11 @@ class StriveFrameData : public CppUserModBase {
     Program = &UE4SSProgram::get_program();
 
     const uint64_t UpdateBattle_Addr = sigscan::get().scan("\x40\x53\x57\x41\x54\x41\x55\x48\x81\xEC\x88\x00\x00\x00", "xxxxxxxxxxxxxx");
-    UpdateBattle_Detour = new PLH::x64Detour(UpdateBattle_Addr, reinterpret_cast<uint64_t>(&hook_UpdateBattle), reinterpret_cast<uint64_t*>(&orig_UpdateBattle));
+    UpdateBattle_Detour = new PLH::x64Detour(UpdateBattle_Addr, reinterpret_cast<uint64_t>(&hook_UpdateBattle), reinterpret_cast<uint64_t *>(&orig_UpdateBattle));
     UpdateBattle_Detour->hook();
 
     const uint64_t MatchStart_Addr = sigscan::get().scan("\x44\x39\x68\x08\x74\x00\x48\x8B\x18\xEB\x00\x48\x8B\xDF", "xxxxx?xxxx?xxx") - 0x8D;
-    MatchStart_Detour = new PLH::x64Detour(MatchStart_Addr, reinterpret_cast<uint64_t>(&hook_MatchStart), reinterpret_cast<uint64_t*>(&orig_MatchStart));
+    MatchStart_Detour = new PLH::x64Detour(MatchStart_Addr, reinterpret_cast<uint64_t>(&hook_MatchStart), reinterpret_cast<uint64_t *>(&orig_MatchStart));
     MatchStart_Detour->hook();
 
     const uintptr_t GetGameMode_Addr = sigscan::get().scan("\x0F\xB6\x81\xF0\x02\x00\x00\xC3", "xxxxxxxx");
@@ -326,11 +324,11 @@ class StriveFrameData : public CppUserModBase {
 };
 
 extern "C" {
-STRIVEFRAMEDATA_API CppUserModBase* start_mod() {
+STRIVEFRAMEDATA_API CppUserModBase *start_mod() {
   return new StriveFrameData();
 }
 
-STRIVEFRAMEDATA_API void uninstall_mod(CppUserModBase* mod) {
+STRIVEFRAMEDATA_API void uninstall_mod(CppUserModBase *mod) {
   delete mod;
 }
 }
