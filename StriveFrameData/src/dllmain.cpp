@@ -109,6 +109,7 @@ public:
       last_mode = current_mode;
       in_allowed_mode = (std::find(allowed_modes.begin(), allowed_modes.end(), current_mode) != allowed_modes.end());
     }
+    
     return in_allowed_mode;
   }
   void checkRound() {
@@ -242,7 +243,13 @@ void hook_MatchStart(AREDGameState_Battle *GameState) {
   orig_MatchStart(GameState);
 }
 void hook_AHUDPostRender(void *hud) {
+  if (!game_state.checkMode()){
+    orig_AHUDPostRender(hud);
+    return;
+  }
+
   if (input_checker.advancing()) return;
+
   orig_AHUDPostRender(hud);
 
   if (DrawTool::instance().update(hud) && cfg.overlayEnabled) {
@@ -251,6 +258,11 @@ void hook_AHUDPostRender(void *hud) {
   }
 }
 void hook_ACamUpdateCamera(void *cam, float DeltaTime) {
+  if (!game_state.checkMode()){
+    orig_ACamUpdateCamera(cam, DeltaTime);
+    return;
+  }
+
   if (input_checker.advancing()) return;
   orig_ACamUpdateCamera(cam, DeltaTime);
 }
