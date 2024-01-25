@@ -1,9 +1,10 @@
+#include <polyhook2/Detour/x64Detour.hpp>
+
 #include "arcsys.h"
 #include "bind_watcher.h"
 #include "draw_utils.h"
 #include "framebar.h"
 #include "sigscan.h"
-#include <polyhook2/Detour/x64Detour.hpp>
 
 #include <DynamicOutput/DynamicOutput.hpp>
 #include <Mod/CppUserModBase.hpp>
