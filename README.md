@@ -39,6 +39,7 @@ Additionally, there are some space saving features. If a segment of frames is lo
 - Save options between game sessions
 - Some command throws don't show active frames
 - RWA and BWA aren't counting for frames
+- Add POT armor frame visualizer
 
 
 ## Disabling

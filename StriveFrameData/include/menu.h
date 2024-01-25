@@ -4,6 +4,7 @@
 
 struct Pallete {
   FLinearColor projectile_color;
+  FLinearColor background_color;
   FLinearColor state_colors[7];
 };
 

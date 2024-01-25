@@ -50,6 +50,16 @@ struct OptionData {
   std::array<const wchar_t*, 5> values;
 };
 
+constexpr float OneOver255 = 1.0f / 255.0f;
+float sRGBToLinear(int pc){
+  float c = pc * OneOver255;
+  return c > 0.04045 ? pow( c * (1.0 / 1.055) + 0.0521327, 2.4 ) : c * (1.0 / 12.92);
+}
+
+FLinearColor convSRGB(int r, int g, int b, int a) {
+  return FLinearColor{sRGBToLinear(r),sRGBToLinear(g),sRGBToLinear(b),a*OneOver255};
+}
+
 namespace {
   constexpr const std::array<OptionData, 4> options = {
     OptionData{L"Frame Bar:",     2, {L"< Disabled   >",   L"< Enabled    >"}},
@@ -100,19 +110,21 @@ namespace {
 
   static const Pallete color_palletes[] = {
     Pallete{ // SF6
-      FLinearColor{(201.f/255.f), (128.f/255.f), (0.f/255.f), 1.f}, 
+      convSRGB(201, 128, 0, 255), 
+      convSRGB(0, 0, 0, 255),
       {
-        FLinearColor{(26.f/255.f), (26.f/255.f), (26.f/255.f), 1.f}, // IDLE
-        FLinearColor{(253.f/255.f), (245.f/255.f), (46.f/255.f), 1.f}, // Block
-        FLinearColor{(253.f/255.f), (245.f/255.f), (46.f/255.f), 1.f}, // Hit
-        FLinearColor{(1.f/255.f), (182.f/255.f), (149.f/255.f), 1.f}, // Busy
-        FLinearColor{(205.f/255.f), (43.f/255.f), (103.f/255.f), 1.f}, // Attacking
-        FLinearColor{(1.f/255.f), (111.f/255.f), (188.f/255.f), 1.f}, // Projectile
-        FLinearColor{(1.f/255.f), (111.f/255.f), (188.f/255.f), 1.f}  // Recovering
+        convSRGB(26, 26, 26, 255), // IDLE
+        convSRGB(253, 245, 46, 255), // Block
+        convSRGB(253, 245, 46, 255), // Hit
+        convSRGB(1, 182, 149, 255), // Busy
+        convSRGB(205, 43, 103, 255), // Attacking
+        convSRGB(1, 111, 188, 255), // Projectile
+        convSRGB(1, 111, 188, 255)  // Recovering
       }
     },
     Pallete{ // CLASSIC
       FLinearColor{.8f, .1f, .1f, 1.f}, 
+      FLinearColor{0.05f, 0.05f, 0.05f, 0.7f},
       {
         FLinearColor{.2f, .2f, .2f, .9f}, // IDLE
         FLinearColor{.1f, .1f, .8f, .9f}, // Block
@@ -124,19 +136,21 @@ namespace {
       }
     },
     Pallete{ // DUSTLOOP
-      FLinearColor{(255.f/255.f), (0.f/255.f), (0.f/255.f), 1.f}, 
+      convSRGB(255, 0, 0, 255), 
+      convSRGB(23, 28, 38, 255),
       {
-        FLinearColor{(128.f/255.f), (128.f/255.f), (128.f/255.f), 1.f}, // IDLE
-        FLinearColor{(233.f/255.f), (215.f/255.f), (4.f/255.f), 1.f}, // Block
-        FLinearColor{(233.f/255.f), (215.f/255.f), (4.f/255.f), 1.f}, // Hit
-        FLinearColor{(54.f/255.f), (179.f/255.f), (126.f/255.f), 1.f}, // Busy
-        FLinearColor{(255.f/255.f), (93.f/255.f), (93.f/255.f), 1.f}, // Attacking
-        FLinearColor{(0.f/255.f), (105.f/255.f), (182.f/255.f), 1.f}, // Projectile
-        FLinearColor{(0.f/255.f), (105.f/255.f), (182.f/255.f), 1.f}  // Recovering
+        convSRGB(128, 128, 128, 255), // IDLE
+        convSRGB(233, 215, 4, 255), // Block
+        convSRGB(233, 215, 4, 255), // Hit
+        convSRGB(54, 179, 126, 255), // Busy
+        convSRGB(255, 93, 93, 255), // Attacking
+        convSRGB(0, 105, 182, 255), // Projectile
+        convSRGB(0, 105, 182, 255)  // Recovering
       }
     },
     Pallete{ // COLORBLIND
       FLinearColor{.8f, .1f, .1f, 1.f}, 
+      FLinearColor{0.05f, 0.05f, 0.05f, 0.7f},
       {
         FLinearColor{.2f, .2f, .2f, .9f}, // IDLE
         FLinearColor{.1f, .1f, .8f, .9f}, // Block

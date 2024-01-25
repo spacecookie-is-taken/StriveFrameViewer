@@ -52,7 +52,6 @@ namespace {
   FLinearColor color_invisible{1.f, 1.f, 1.f, 0.f};
   FLinearColor color_white{1.f, 1.f, 1.f, 1.f};
   FLinearColor color_black{0.f, 0.f, 0.f, 1.f};
-  FLinearColor background_color{0.05f, 0.05f, 0.05f, 0.7f};
 }
 
 // ############################################################
@@ -547,8 +546,8 @@ void FrameBar::Data::draw() {
   tool.drawOutlinedText(BAR_LEFT, INFO_ONE_LOC, Unreal::FString(player_one_info.c_str()), BAR_TEXT_SIZE);
   tool.drawOutlinedText(BAR_LEFT, INFO_TWO_LOC, Unreal::FString(player_two_info.c_str()), BAR_TEXT_SIZE);
 
-  tool.drawRect(BAR_LEFT, BAR_ONE_TOP, BAR_WIDTH, BAR_HEIGHT, background_color);
-  tool.drawRect(BAR_LEFT, BAR_TWO_TOP, BAR_WIDTH, BAR_HEIGHT, background_color);
+  tool.drawRect(BAR_LEFT, BAR_ONE_TOP, BAR_WIDTH, BAR_HEIGHT, scheme.background_color);
+  tool.drawRect(BAR_LEFT, BAR_TWO_TOP, BAR_WIDTH, BAR_HEIGHT, scheme.background_color);
 
   for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
     int left = BAR_LEFT + (SEG_TOTAL * idx) + SEG_SPACING;
