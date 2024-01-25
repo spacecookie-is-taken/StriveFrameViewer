@@ -1,7 +1,8 @@
 #include <polyhook2/Detour/x64Detour.hpp>
 #include "sigscan.h"
 #include "arcsys.h"
-#include "drawing.h"
+#include "draw_utils.h"
+#include "framebar.h"
 #include "bind_watcher.h"
 
 #include <UE4SSProgram.hpp>
@@ -175,27 +176,11 @@ class AsyncInputChecker {
   }
 } input_checker;
 class UeTracker {
-  Unreal::AActor* input_actor = nullptr;
-  Unreal::UObject* hud_actor = nullptr;
-  Unreal::UObject* player_actor = nullptr;
-  Unreal::UObject* font_object = nullptr;
   Unreal::UObject* worldsets_actor = nullptr;
-  Unreal::UWorld* world_actor = nullptr;
-
-  Unreal::UFunction* drawrect_func = nullptr;
-  Unreal::UFunction* drawtext_func = nullptr;
-  Unreal::UFunction* getplayer_func = nullptr;
-  Unreal::UFunction* getsize_func = nullptr;
-  Unreal::UFunction* getworldsets_func = nullptr;
-
   Unreal::FProperty* paused_prop = nullptr;
-
-  GetSizeParams SizeData;
-
   bool renderingHooked = false;
-  bool success = false;
 
-  void hookHUD() {
+  void hookFuncs() {
     if (renderingHooked) return;
     renderingHooked = true;
 
@@ -206,119 +191,47 @@ class UeTracker {
     const auto** ACamera_vtable = (const void**)get_rip_relative(sigscan::get().scan("\x48\x8D\x05\x00\x00\x00\x00\x48\x8d\x8f\x20\x28\x00\x00", "xxx????xxxxxxx") + 3);
     orig_ACamUpdateCamera = (funcACamUpdateCamera_t)vtable_hook(ACamera_vtable, 208, hook_ACamUpdateCamera);
   }
-  void hookCameras() {
-    static auto ucam_class_name = Unreal::FName(STR("Font"), Unreal::FNAME_Add);
-  }
-  bool setupFont() {
-    static auto ufont_class_name = Unreal::FName(STR("Font"), Unreal::FNAME_Add);
-    std::vector<RC::Unreal::UObject*> all_fonts;
-    UObjectGlobals::FindAllOf(ufont_class_name, all_fonts);
-    for (auto* font : all_fonts) {
-      RC::Output::send<LogLevel::Warning>(STR("-font: {}\n"), font->GetName());
-      if (font->GetName() == L"RobotoDistanceField") {
-        font_object = font;
-        return true;
-      }
-    }
-    return false;
-  }
-  bool setupHud() {
-    static auto hud_class_name = Unreal::FName(STR("REDHUD_Battle"), Unreal::FNAME_Add);
-    static auto hud_drawrect_func_name = Unreal::FName(STR("DrawRect"), Unreal::FNAME_Add);
-    static auto hud_drawtext_func_name = Unreal::FName(STR("DrawText"), Unreal::FNAME_Add);
-    static auto hud_getplayer_func_name = Unreal::FName(STR("GetOwningPlayerController"), Unreal::FNAME_Add);
-    static auto player_getsize_func_name = Unreal::FName(STR("GetViewportSize"), Unreal::FNAME_Add);
-
-    hud_actor = UObjectGlobals::FindFirstOf(hud_class_name);
-    if (!hud_actor) return false;
-
-    drawrect_func = hud_actor->GetFunctionByNameInChain(hud_drawrect_func_name);
-    drawtext_func = hud_actor->GetFunctionByNameInChain(hud_drawtext_func_name);
-    getplayer_func = hud_actor->GetFunctionByNameInChain(hud_getplayer_func_name);
-
-    if (!drawrect_func || !drawtext_func || !getplayer_func) return false;
-
-    hud_actor->ProcessEvent(getplayer_func, &player_actor);
-    if (!player_actor) return false;
-
-    getsize_func = player_actor->GetFunctionByNameInChain(player_getsize_func_name);
-    if (!getsize_func) return false;
-
-    player_actor->ProcessEvent(getsize_func, &SizeData);
-
-    return true;
-  }
-  bool setupState() {
+  void findProp() {
     static auto input_class_name = Unreal::FName(STR("REDPlayerController_Battle"), Unreal::FNAME_Add);
     static auto getworldsets_func_name = Unreal::FName(STR("K2_GetWorldSettings"), Unreal::FNAME_Add);
 
-    input_actor = static_cast<Unreal::AActor*>(UObjectGlobals::FindFirstOf(input_class_name));
-    if (!input_actor) return false;
+    auto* input_actor = static_cast<Unreal::AActor*>(UObjectGlobals::FindFirstOf(input_class_name));
+    if (!input_actor) return;
 
-    world_actor = input_actor->GetWorld();
-    if (!world_actor) return false;
+    auto* world_actor = input_actor->GetWorld();
+    if (!world_actor) return;
 
-    getworldsets_func = world_actor->GetFunctionByNameInChain(getworldsets_func_name);
-    if (!getworldsets_func) return false;
+    auto* getworldsets_func = world_actor->GetFunctionByNameInChain(getworldsets_func_name);
+    if (!getworldsets_func) return;
 
+    
     world_actor->ProcessEvent(getworldsets_func, &worldsets_actor);
-    if (!worldsets_actor) return false;
+    if (!worldsets_actor) return;
 
     paused_prop = worldsets_actor->GetPropertyByName(STR("PauserPlayerState"));
-    if (!paused_prop) return false;
-
-    return true;
   }
 
  public:
-  bool isValid() { return success; }
   void reset() {
-    success = false;
-    input_actor = nullptr;
-    hud_actor = nullptr;
-    player_actor = nullptr;
-    font_object = nullptr;
     worldsets_actor = nullptr;
-    world_actor = nullptr;
-
-    drawrect_func = nullptr;
-    drawtext_func = nullptr;
-    getplayer_func = nullptr;
-    getsize_func = nullptr;
-    getworldsets_func = nullptr;
-
     paused_prop = nullptr;
   }
   void setup() {
-    hookHUD();
-    success = true;
-    success &= setupFont();
-    success &= setupHud();
-    success &= setupState();
-    if (!success) return;
-
-    initFrames(SizeData, drawrect_func, drawtext_func, font_object);
+    reset();
+    hookFuncs();
+    findProp();
     return;
   }
-
-  void draw(void* validate_hud) {
-    if (!isValid()) return;
-    if (hud_actor == validate_hud) {
-      player_actor->ProcessEvent(getsize_func, &SizeData);
-      drawFrames(hud_actor, SizeData);
-    } else {
-      RC::Output::send<LogLevel::Warning>(STR("Resetting: HUD actor expired \n"));
-      reset();
-    }
-  }
   bool isUePaused() {
-    if (!isValid()) return false;
+    if (!paused_prop) return false;
     Unreal::AActor** val = static_cast<Unreal::AActor**>(paused_prop->ContainerPtrToValuePtr<void>(worldsets_actor));
     return (bool)val ? ((bool)*val) : false;
   }
 } tracker;
 
 /* Hooks */
+
+FrameBar the_bar;
 
 void hook_MatchStart(AREDGameState_Battle* GameState) {
   game_state.matchStarted = true;
@@ -331,8 +244,9 @@ void hook_MatchStart(AREDGameState_Battle* GameState) {
 void hook_AHUDPostRender(void* hud) {
   if(input_checker.advancing()) return;
   orig_AHUDPostRender(hud);
-  if (tracker.isValid() && cfg.overlayEnabled) {
-    tracker.draw(hud);
+
+  if (DrawTool::instance().update(hud) && cfg.overlayEnabled) {
+    the_bar.draw();
   }
 }
 void hook_ACamUpdateCamera(void* cam, float DeltaTime) {
@@ -350,18 +264,19 @@ void hook_UpdateBattle(AREDGameState_Battle* GameState, float DeltaTime) {
 
   game_state.checkRound();
   if (game_state.resetting) {
-    resetFrames();
+    the_bar.reset();
   }
 
   orig_UpdateBattle(GameState, DeltaTime);
 
   if (game_state.matchStarted) {
     game_state.matchStarted = false;
+    DrawTool::instance().initialize();
     tracker.setup();
   }
 
   if (!tracker.isUePaused() && game_state.roundActive) {
-    addFrame();
+    the_bar.addFrame();
   }
 }
 
@@ -382,25 +297,6 @@ class StriveFrameData : public CppUserModBase {
     // Do not change this unless you want to target a UE4SS version
     // other than the one you're currently building with somehow.
     // ModIntendedSDKVersion = STR("2.6");
-
-    register_tab(STR("Strive Frame Data"), [](CppUserModBase* instance) {
-      UE4SS_ENABLE_IMGUI();
-      // RC::Output::send<LogLevel::Warning>(STR("IMGUI Pointer: {}\n"), (void*)ImGui::GetCurrentContext());
-
-      ImGui::Text("Options:");
-
-      ImGui::Checkbox("Enable Overlay", &cfg.overlayEnabled);
-      // ImGui::Checkbox("Enable Truncation", &cfg_truncEnabled);
-      // ImGui::Checkbox("Show Dustloop Style Timings", &cfg_dustloopEnabled);
-      // ImGui::Checkbox("Enable Fade Effect", &cfg_fadeEnabled);
-      // Input Selector for reset button
-      // Input Selector for pause gameplay
-      // Input Selector for advance gameplay by a frame
-      // Add "End Time" for how long the bar should wait before thinking a combo is dropped
-
-      ImGui::Text("Help:");
-      ImGui::Text("TODO");
-    });
   }
 
   ~StriveFrameData() override {}

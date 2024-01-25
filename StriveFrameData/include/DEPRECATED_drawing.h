@@ -14,3 +14,8 @@ void addFrame();
 void resetFrames();
 
 void drawFrames(RC::Unreal::UObject* hud, const GetSizeParams& sizedata);
+
+
+class MenuOverlay {
+
+};

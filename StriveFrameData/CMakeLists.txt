@@ -7,7 +7,8 @@ set(${TARGET}_Sources
         "${CMAKE_CURRENT_SOURCE_DIR}/src/arcsys.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/bbscript.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/dllmain.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src/drawing.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/draw_utils.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/framebar.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/sigscan.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/bind_watcher.cpp"
         )
