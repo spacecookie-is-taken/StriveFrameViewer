@@ -9,7 +9,7 @@ RC::UClass* Class;
 
 UWorld** GWorld;
 
-using asw_scene_camera_transform_t = void (*)(const asw_scene*, RC::Unreal::FVector*, RC::Unreal::FVector*, RC::Unreal::FVector*);
+using asw_scene_camera_transform_t = void (*)(const asw_scene*, SimpleFVector*, SimpleFVector*, SimpleFVector*);
 asw_scene_camera_transform_t asw_scene_camera_transform;
 
 using asw_entity_is_active_t = bool (*)(const asw_entity*, int);
@@ -78,12 +78,12 @@ asw_events* asw_events::get() {
   return GameState ? GameState->Events : nullptr;
 }
 
-void asw_scene::camera_transform(RC::Unreal::FVector* delta, RC::Unreal::FVector* position, RC::Unreal::FVector* angle) const {
+void asw_scene::camera_transform(SimpleFVector* delta, SimpleFVector* position, SimpleFVector* angle) const {
   asw_scene_camera_transform(this, delta, position, angle);
 }
 
-void asw_scene::camera_transform(RC::Unreal::FVector* position, RC::Unreal::FVector* angle) const {
-  RC::Unreal::FVector delta;
+void asw_scene::camera_transform(SimpleFVector* position, SimpleFVector* angle) const {
+  SimpleFVector delta;
   asw_scene_camera_transform(this, &delta, position, angle);
 }
 

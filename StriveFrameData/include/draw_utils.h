@@ -3,6 +3,8 @@
 #include <UE4SSProgram.hpp>
 #include <UnrealDef.hpp>
 
+#include "arcsys.h"
+
 struct FLinearColor {
   float R = 0.f, G = 0.f, B = 0.f, A = 0.f;
 
@@ -29,6 +31,48 @@ enum EBlendMode {
 struct FVector2D {
   float x;
   float y;
+
+  FVector2D()
+  : x(0)
+  , y(0) {}
+  FVector2D(float X, float Y)
+  : x(X)
+  , y(Y) {}
+  FVector2D(double X, double Y)
+  : x(static_cast<float>(X))
+  , y(static_cast<float>(Y)) {}
+  FVector2D(int X, int Y)
+  : x(static_cast<float>(X))
+  , y(static_cast<float>(Y)) {}
+
+  FVector2D Rotate(const float angle) const {
+    const auto ca = cosf(angle);
+    const auto sa = sinf(angle);
+    return FVector2D(x * ca + y * -sa, x * sa + y * ca);
+  }
+  float SizeSquared() const {
+    return x * x + y * y;
+  }
+
+  float Size() const {
+    return sqrt(SizeSquared());
+  }
+
+  FVector2D operator+(const FVector2D &other) const {
+    return FVector2D(x + other.x, y + other.y);
+  }
+
+  FVector2D operator-(const FVector2D &other) const {
+    return FVector2D(x - other.x, y - other.y);
+  }
+
+  FVector2D operator*(float scalar) const {
+    return FVector2D(x * scalar, y * scalar);
+  }
+
+  FVector2D operator/(float scalar) const {
+    return FVector2D(x / scalar, y / scalar);
+  }
 };
 
 namespace DrawParams {
@@ -52,6 +96,14 @@ namespace DrawParams {
     float Scale;
     bool bScalePosition;
   };
+  struct Line {
+    float StartScreenX;
+    float StartScreenY;
+    float EndScreenX;
+    float EndScreenY;
+    FLinearColor LineColor;
+    float LineThickness;
+  };
   struct Icon {
     void *Texture;
     float ScreenX;
@@ -69,6 +121,10 @@ namespace DrawParams {
     float Rotation;
     FVector2D RotPivot;
   };
+  struct Project {
+    SimpleFVector location;
+    SimpleFVector result;
+  };
 }
 
 class DrawTool {
@@ -77,8 +133,10 @@ class DrawTool {
   Unreal::UObject *ref_player = nullptr;
   Unreal::UObject *ref_font = nullptr;
   Unreal::UFunction *ref_getsize = nullptr;
+  Unreal::UFunction *ref_project = nullptr;
   Unreal::UFunction *ref_drawrect = nullptr;
   Unreal::UFunction *ref_drawtext = nullptr;
+  Unreal::UFunction *ref_drawline = nullptr;
 
   double screen_width = 0.0;
   double screen_height = 0.0;
@@ -98,6 +156,14 @@ public:
   double getWidth() const { return screen_width; }
   double getHeight() const { return screen_height; }
   double getUnits() const { return units; }
+
+  SimpleFVector project(const SimpleFVector &world_coords) const {
+    DrawParams::Project params{
+        world_coords,
+        SimpleFVector{-1, -1, -1}};
+    ref_hud->ProcessEvent(ref_project, &params);
+    return params.result;
+  }
 
   // params are in screen space coordinates
   void drawRect(double left, double top, double width, double height, const FLinearColor &color) const {
@@ -119,6 +185,16 @@ public:
         static_cast<float>(scale),
         false};
     ref_hud->ProcessEvent(ref_drawtext, &params);
+  }
+  void drawLine(FVector2D start, FVector2D end, const FLinearColor &color, float thickness) const {
+    DrawParams::Line params{
+        start.x,
+        start.y,
+        end.x,
+        end.y,
+        color,
+        thickness};
+    ref_hud->ProcessEvent(ref_drawline, &params);
   }
   void drawOutlinedText(double left, double top, const Unreal::FString &text, double scale) const;
 };

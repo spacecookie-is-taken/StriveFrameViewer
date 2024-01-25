@@ -37,15 +37,11 @@ In the external mod management GUI, there is a "Strive Frame Data" tab. This tab
 
 
 ## TODO:
-- Fix "off by one" errors where the length of sections is incorrect for some moves, I think this comes down to consequences the odd (but rational in context) way that Strive encodes frame data in bbscript.
-- Fix some projectiles and moves not displaying active hitbox frames.
-- figure out how to pull game controls, to avoid needing customization of reset key
+- Display hitboxes
+- Fix Leo backstance move lengths
 - Add data about largest gap for each player
-- Fix off by one errors caused by pausing
+- Add options menu
 - Save options between game sessions
-- Extend options
-- Ram Calvados shows a projectile to early (likely same issue as Baiken's Mat)
-- Pause inputs coming out late
 - Some command throws don't show active frames
 
 

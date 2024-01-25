@@ -6,6 +6,11 @@
 
 void ASWInitFunctions();
 
+// I have no fucking idea what UE4SS is doing with their FVector, but it breaks stuff
+struct SimpleFVector {
+  float x, y, z;
+};
+
 class AGameState : public RC::Unreal::AActor {};
 
 class UWorld : public RC::Unreal::UObject {
@@ -120,8 +125,8 @@ public:
 	// "delta" is the difference between input and output position
 	// position gets written in place
 	// position/angle can be null
-	void camera_transform(RC::Unreal::FVector *delta, RC::Unreal::FVector *position, RC::Unreal::FVector *angle) const;
-	void camera_transform(RC::Unreal::FVector *position, RC::Unreal::FVector *angle) const;
+	void camera_transform(SimpleFVector *delta, SimpleFVector *position, SimpleFVector *angle) const;
+	void camera_transform(SimpleFVector *position, SimpleFVector *angle) const;
 };
 
 class hitbox {
@@ -270,6 +275,12 @@ public:
     FIELD(0x134C, int, sprite_changes);
     ARRAY_FIELD(0x1358, event_handler[(size_t)bbscript::event_type::MAX], event_handlers);
     ARRAY_FIELD(0x3740, char[20], state_name);
+    
+    // afro
+    FIELD(0x993C, int, ply_PushColHeightLowAir);
+    FIELD(0xF230, int, afro);
+	  FIELD(0xF268, int, afroW);
+	  FIELD(0xF26C, int, afroH);
 
     bool is_active() const;
     bool is_pushbox_active() const;

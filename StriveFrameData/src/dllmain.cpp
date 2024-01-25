@@ -4,6 +4,7 @@
 #include "bind_watcher.h"
 #include "draw_utils.h"
 #include "framebar.h"
+#include "hitboxes.h"
 #include "sigscan.h"
 
 #include <DynamicOutput/DynamicOutput.hpp>
@@ -245,6 +246,7 @@ void hook_AHUDPostRender(void *hud) {
   orig_AHUDPostRender(hud);
 
   if (DrawTool::instance().update(hud) && cfg.overlayEnabled) {
+    drawAllBoxes();
     the_bar.draw();
   }
 }

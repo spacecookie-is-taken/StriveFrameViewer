@@ -35,6 +35,8 @@ void DrawTool::initialize() {
   static auto hud_class_name = Unreal::FName(STR("REDHUD_Battle"), Unreal::FNAME_Add);
   static auto hud_drawrect_func_name = Unreal::FName(STR("DrawRect"), Unreal::FNAME_Add);
   static auto hud_drawtext_func_name = Unreal::FName(STR("DrawText"), Unreal::FNAME_Add);
+  static auto hud_drawline_func_name = Unreal::FName(STR("DrawLine"), Unreal::FNAME_Add);
+  static auto hud_project_func_name = Unreal::FName(STR("Project"), Unreal::FNAME_Add);
   static auto hud_getplayer_func_name = Unreal::FName(STR("GetOwningPlayerController"), Unreal::FNAME_Add);
   static auto player_getsize_func_name = Unreal::FName(STR("GetViewportSize"), Unreal::FNAME_Add);
 
@@ -44,8 +46,10 @@ void DrawTool::initialize() {
 
   ref_drawrect = ref_hud->GetFunctionByNameInChain(hud_drawrect_func_name);
   ref_drawtext = ref_hud->GetFunctionByNameInChain(hud_drawtext_func_name);
+  ref_drawline = ref_hud->GetFunctionByNameInChain(hud_drawline_func_name);
+  ref_project = ref_hud->GetFunctionByNameInChain(hud_project_func_name);
   Unreal::UFunction *getplayer_func = ref_hud->GetFunctionByNameInChain(hud_getplayer_func_name);
-  if (!ref_drawrect || !ref_drawtext || !getplayer_func)
+  if (!ref_drawrect || !ref_drawtext || !getplayer_func || !ref_project || !ref_drawline)
     return;
 
   ref_hud->ProcessEvent(getplayer_func, &ref_player);
