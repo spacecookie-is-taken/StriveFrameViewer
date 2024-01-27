@@ -2,10 +2,17 @@
 
 #include "draw_utils.h"
 
-struct Pallete {
+struct Palette {
   FLinearColor projectile_color;
   FLinearColor background_color;
   FLinearColor state_colors[7];
+};
+
+struct CurrentOptions {
+  const Palette& palette;
+  bool show_fade;
+  bool show_delim;
+  bool show_cancels;
 };
 
 class ModMenu {
@@ -26,10 +33,11 @@ public:
   void update(bool bar_toggled, bool hitbox_toggled, bool menu_toggled);
   void draw();
 
-  bool barEnabled() const { return settings[0]; }
-  bool hitboxEnabled() const { return settings[1]; }
-  bool fadeEnabled() const { return settings[2]; }
-  int colorScheme() const { return settings[3]; }
+  bool barEnabled() const;
+  bool hitboxEnabled() const;
+  bool fadeEnabled() const;
+  bool delimEnabled() const;
+  bool cancelEnabled() const;
 
-  const Pallete& getScheme() const;
+  CurrentOptions getScheme() const;
 };

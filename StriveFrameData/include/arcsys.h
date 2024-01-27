@@ -212,6 +212,58 @@ public:
 
 static_assert(sizeof(atk_param_ex) == 0xB8);
 
+class ActionReqInfo {
+  char pad[0x50];
+public:
+  FIELD(0x44, int, skill_id); 
+};
+
+enum SKILL_ACTIVE_FLAG
+{
+	SAF_CHAIN = 1,
+	SAF_FLEX_CHAIN = 16,
+	SAF_PD_CHAIN = 32,
+	SAF_CONDITION_READY = 64,
+	SAF_REQUESTED = 128,
+	SAF_LOW_ESTIMATION = 256,
+	SAF_ARENDA_CHAIN = 512,
+	SAF_ARENDA_FLEX_CHAIN = 1024,
+	SAF_ARENDA_CHAIN_PD = 2048,
+	SAF_BRENDA_CHAIN = 4096,
+	SAF_BRENDA_FLEX_CHAIN = 8192,
+	SAF_BRENDA_CHAIN_PD = 16384,
+	SAF_CRENDA_CHAIN = 32768,
+	SAF_CRENDA_FLEX_CHAIN = 65536,
+	SAF_CRENDA_CHAIN_PD = 131072,
+	SAF_REQUEST_RESERVE = -2147483648,
+};
+
+class MoveData {
+  char pad[0x220]; // ghidra says 0x200, experimentation show 0x220
+public:
+  ARRAY_FIELD(0x0, char[20], move_name); // m_SkillName
+  FIELD(0x1B8, SKILL_ACTIVE_FLAG, active_flag); // m_SkillActiveFlag
+
+  const char* get_name() const { return &move_name[0]; }
+};
+
+// old moves size: 0x200 * 180 = 0x16800
+// new moves size: 0x220 * 180 = 0x17e80
+// move size diff: 0x17e80 - 0x16800 = 0x1680
+// old MDC size: 0x1aafc
+// new MDC size: 0x1aafc + 0x1680 = 0x1C17C
+// old m_SkillInfoCount offset: 0x18A1C
+// new m_SkillInfoCount offset: 0x18A1C + 0x1680 = 0x1A09C
+class MoveDataCollection { 
+  char pad[0x1C17C];
+public:
+  ARRAY_FIELD(0x0, MoveData[180], moves); // m_SkillInfo
+  //ARRAY_FIELD(0x16804, int[180], indicies); // m_SkillRegisterIndexList
+  //FIELD(0x16AD4, long, index_count); // m_SkillRegisterNum
+  FIELD(0x1A09C, long, move_count); // m_SkillInfoCount,  Ghidra: 0x18A1C
+  //0x18A28 Hash of Skill Names
+};
+
 class asw_entity {
 
 public:
@@ -240,6 +292,7 @@ public:
 	BIT_FIELD(0x394, 16, strike_invuln);
 	BIT_FIELD(0x394, 32, throw_invuln);
 	BIT_FIELD(0x394, 64, wakeup);
+  BIT_FIELD(0x398, 32, landed_hit);
 	FIELD(0x3A4, direction, facing);
 	FIELD(0x3A8, int, pos_x);
 	FIELD(0x3AC, int, pos_y);
@@ -274,13 +327,15 @@ public:
     FIELD(0x1268, int, sprite_total_duration);
     FIELD(0x134C, int, sprite_changes);
     ARRAY_FIELD(0x1358, event_handler[(size_t)bbscript::event_type::MAX], event_handlers);
-    ARRAY_FIELD(0x3740, char[20], state_name);
-    
-    // afro
-    FIELD(0x993C, int, ply_PushColHeightLowAir);
-    FIELD(0xF230, int, afro);
-	  FIELD(0xF268, int, afroW);
-	  FIELD(0xF26C, int, afroH);
+    ARRAY_FIELD(0x3740, char[20], state_name); // m_CurActionName (old: 0x3628, 0x118 offset)
+
+    // m_ActionRequestInfo, Ghidra: 0x3674, 0x118 offset?)
+    // Ghidra + 0x118 = 0x378C (from state_name)
+    FIELD(0x378C, ActionReqInfo, action_info); 
+
+    // m_ActionRequestInfo, Ghidra: 0x36c4, 0x118 offset?)
+    // Ghidra + 0x118 = 0x37DC (from state_name)
+    FIELD(0x37DC, ActionReqInfo, action_info_reg);
 
     bool is_active() const;
     bool is_pushbox_active() const;
@@ -492,14 +547,50 @@ enum ID_CMNACT : uint32_t
     ID_CmnAct_NULL = 0xFFFFFFFF,
 };
 
+enum PLATTACK_FLAG
+{
+	PLATK_CHAINCANCEL = 1,
+	PLATK_FLEXCANCEL = 2,
+	PLATK_SPECIALCANCEL = 4,
+	PLATK_JUMPCANCEL = 8,
+	PLATK_SPECIALCANCEL_PD = 16,
+	PLATK_JUMPCANCEL_PD = 32,
+	PLATK_DASHCANCEL = 64,
+	PLATK_DASHCANCEL_PD = 128,
+	PLATK_FLEXCANCEL_NEXT = 256,
+	PLATK_ULTIMATECANCEL = 512,
+	PLATK_ULTIMATECANCEL_PD = 1024,
+	PLATK_TENSION_PENALTY = 2048,
+	PLATK_AIRDASHCANCEL = 4096,
+	PLATK_AIRBDASHCANCEL = 8192,
+	PLATK_FLG_21 = 2097152,
+	PLATK_ULTIMATECHANGE_CANCEL = 4194304,
+	PLATK_ULTIMATECHANGE_CANCEL_PD = 8388608,
+	PLATK_MIKIWAMEMOVE_CANCEL = 16777216,
+	PLATK_MIKIWAMEMOVE_CANCEL_PD = 33554432,
+	PLATK_A_RENDA_CANCEL_DISABLE = 67108864,
+	PLATK_B_RENDA_CANCEL_DISABLE = 134217728,
+	PLATK_C_RENDA_CANCEL_DISABLE = 268435456,
+	PLATK_GUARDCANCEL = 536870912,
+	PLATK_ULTIMATESKILL = 1073741824,
+	PLATK_ULTIMATECHANGESKILL = -2147483648,
+};
+
 class asw_player : public asw_entity {
 
 public:
+    
     FIELD(0x60E0, int, enable_flag); // original: 0x6080 -> fixed: 0x60E0 (+0x060)
+    FIELD(0x60EC, int, attack_flag); // original: 0x5F90 -> fixed: 0x60EC (+0x060)
     FIELD(0x6100, int, blockstun); // original: 0x60A0 + 0x060 = 0x6100
     FIELD(0x98C8, int, hitstun); // original: 0x9868 + 0x060 = 0x98C8
+    FIELD(0x993C, int, ply_PushColHeightLowAir);
     FIELD(0xC2CC, ID_CMNACT, cur_cmn_action_id); // original: 0xC26C + 0x060 = 0xC2CC
     FIELD(0xCFFC, int, slowdown_timer); // original: 0xCF9C + 0x060 = 0xCFFC
+    FIELD(0xFA60, MoveDataCollection, move_datas); 
+    FIELD(0xF230, int, afro); // m_IsAfro Header: 0xed28, Offset: 0x508 
+	  FIELD(0xF268, int, afroW);
+	  FIELD(0xF26C, int, afroH);
 
     int calc_advantage();
     bool is_in_hitstun() const;
@@ -517,4 +608,9 @@ public:
     bool is_stunned() const;
 
     bool is_stance_idle() const;
+
+    MoveData* get_current_move() const;
+
+    bool can_whiff_cancel() const { return attack_flag &  PLATK_FLEXCANCEL; }
+    bool can_gatling_cancel() const { return (attack_flag & PLATK_CHAINCANCEL) && landed_hit;}
 };

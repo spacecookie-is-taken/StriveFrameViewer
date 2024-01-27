@@ -40,6 +40,9 @@ Additionally, there are some space saving features. If a segment of frames is lo
 - Some command throws don't show active frames
 - RWA and BWA aren't counting for frames
 - Add POT armor frame visualizer
+- Add cancellable recovery frame visualizer
+- Add color key to menu
+- Add segment break indicator
 
 
 ## Disabling

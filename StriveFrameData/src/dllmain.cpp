@@ -281,8 +281,8 @@ void hook_AHUDPostRender(void *hud) {
 
   auto& menu = ModMenu::instance();
   menu.draw();
-  if(menu.barEnabled()) the_bar.draw();
   if(menu.hitboxEnabled()) drawAllBoxes();
+  if(menu.barEnabled()) the_bar.draw();
 }
 void hook_ACamUpdateCamera(void *cam, float DeltaTime) {
   if (!game_state.checkMode()) {

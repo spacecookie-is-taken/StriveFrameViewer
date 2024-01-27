@@ -385,3 +385,11 @@ bool asw_player::is_stance_idle() const {
   }
   return false;
 }
+
+MoveData* asw_player::get_current_move() const {
+  int current_skill = action_info_reg.skill_id;
+  if(current_skill != -1){
+    return &move_datas.moves[current_skill];
+  }
+  return nullptr;
+}

@@ -21,6 +21,17 @@ enum PlayerStateType {
   PST_End
 };
 
+enum ModifierType {
+  MT_None = 0x0,
+  MT_Cancellable = 0x1,
+  MT_Projectile = 0x2,
+  MT_SegmentEnd = 0x4
+};
+inline ModifierType operator|(ModifierType a, ModifierType b) { return (ModifierType)((int)a | (int)b);}
+inline ModifierType operator&(ModifierType a, ModifierType b) { return (ModifierType)((int)a & (int)b);}
+inline ModifierType& operator|=(ModifierType& a, ModifierType b) { return (a = a | b);}
+inline ModifierType& operator&=(ModifierType& a, ModifierType b) { return (a = a & b);}
+
 struct ProjectileTracker {
   struct ProjectileInfo {
     asw_entity *direct_parent;
@@ -58,7 +69,9 @@ public:
   int time = -1;
   PlayerStateType type = PST_Idle;
   int state_time = 0;
+  int trunc_time = 0;
   bool active_stall = true;
+  bool can_cancel = false;
 
   PlayerState() = default;
   PlayerState(asw_player &player, const PlayerState &last);
@@ -68,9 +81,9 @@ public:
 };
 
 struct FrameInfo {
-  PlayerStateType type = PST_None;
+  PlayerStateType state = PST_None;
+  ModifierType mods = MT_None;
   double decay = 1.0;
-  bool border = false;
   int trunc = 0;
 };
 
@@ -122,7 +135,7 @@ struct FrameBar::Data {
     func(&data.second, args...);
   }*/
 
-  void drawFrame(const Pallete& scheme, bool fade, const FrameInfo &info, int top, int left);
+  void drawFrame(const CurrentOptions& scheme,  const FrameInfo &info, int top, int left);
   void resetFrames();
 
   Data();

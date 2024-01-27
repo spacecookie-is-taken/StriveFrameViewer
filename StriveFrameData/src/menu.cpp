@@ -61,12 +61,21 @@ FLinearColor convSRGB(int r, int g, int b, int a) {
 }
 
 namespace {
-  constexpr const std::array<OptionData, 4> options = {
+  constexpr const std::array<OptionData, 6> options = {
     OptionData{L"Frame Bar:",     2, {L"< Disabled   >",   L"< Enabled    >"}},
     OptionData{L"Hitboxes:",      2, {L"< Disabled   >",   L"< Enabled    >"}},
     OptionData{L"Fade Effect:",   2, {L"< Disabled   >",   L"< Enabled    >"}},
+    OptionData{L"Delim Segments:",   2, {L"< Disabled   >",   L"< Enabled    >"}},
+    OptionData{L"Show Cancel Window:",   2, {L"< Disabled   >",   L"< Enabled    >"}},
     OptionData{L"Color Scheme:",  4, {L"< SF6        >", L"< Classic    >", L"< Dustloop   >", L"< Colorblind >"}},
   };
+
+  constexpr size_t FRAMEBAR_INDEX = 0;
+  constexpr size_t HITBOX_INDEX = 1;
+  constexpr size_t FADE_INDEX = 2;
+  constexpr size_t DELIM_INDEX = 3;
+  constexpr size_t CANCEL_INDEX = 4;
+  constexpr size_t SCHEME_INDEX = 5;
 
   constexpr size_t OPTION_COUNT = options.size();
 
@@ -108,8 +117,8 @@ namespace {
   FLinearColor background_color{0.2f, 0.2f, 0.2f, 0.8f};
   FLinearColor cursor_color{0.5f, 0.0f, 0.0f, 1.0f};
 
-  static const Pallete color_palletes[] = {
-    Pallete{ // SF6
+  static const Palette color_palettes[] = {
+    Palette{ // SF6
       convSRGB(201, 128, 0, 255), 
       convSRGB(0, 0, 0, 255),
       {
@@ -122,7 +131,7 @@ namespace {
         convSRGB(1, 111, 188, 255)  // Recovering
       }
     },
-    Pallete{ // CLASSIC
+    Palette{ // CLASSIC
       FLinearColor{.8f, .1f, .1f, 1.f}, 
       FLinearColor{0.05f, 0.05f, 0.05f, 0.7f},
       {
@@ -135,7 +144,7 @@ namespace {
         FLinearColor{.8f, .4f, .1f, .9f}  // Recovering
       }
     },
-    Pallete{ // DUSTLOOP
+    Palette{ // DUSTLOOP
       convSRGB(255, 0, 0, 255), 
       convSRGB(23, 28, 38, 255),
       {
@@ -148,7 +157,7 @@ namespace {
         convSRGB(0, 105, 182, 255)  // Recovering
       }
     },
-    Pallete{ // COLORBLIND
+    Palette{ // COLORBLIND
       FLinearColor{.8f, .1f, .1f, 1.f}, 
       FLinearColor{0.05f, 0.05f, 0.05f, 0.7f},
       {
@@ -193,8 +202,8 @@ ModMenu::ModMenu()
 }
 
 void ModMenu::update(bool bar_toggled, bool hitbox_toggled, bool menu_toggled) {
-  if(bar_toggled) changeSetting(0);
-  if(hitbox_toggled) changeSetting(1);
+  if(bar_toggled) changeSetting(FRAMEBAR_INDEX);
+  if(hitbox_toggled) changeSetting(HITBOX_INDEX);
   if(menu_toggled) is_showing = !is_showing;
 
   if(!is_showing) return;
@@ -226,6 +235,12 @@ void ModMenu::draw() {
   }
 }
 
-const Pallete& ModMenu::getScheme() const {
-  return color_palletes[settings[3]];
+bool ModMenu::barEnabled() const { return settings[FRAMEBAR_INDEX]; }
+bool ModMenu::hitboxEnabled() const { return settings[HITBOX_INDEX]; }
+bool ModMenu::fadeEnabled() const { return settings[FADE_INDEX]; }
+bool ModMenu::delimEnabled() const { return settings[DELIM_INDEX]; }
+bool ModMenu::cancelEnabled() const { return settings[CANCEL_INDEX]; }
+
+CurrentOptions ModMenu::getScheme() const {
+  return CurrentOptions{color_palettes[settings[SCHEME_INDEX]], fadeEnabled(), delimEnabled(), cancelEnabled()};
 }

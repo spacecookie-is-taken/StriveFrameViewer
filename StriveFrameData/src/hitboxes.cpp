@@ -294,7 +294,7 @@ void draw_hitbox(const DrawTool &tool, const asw_entity &entity, const DrawnHitb
   }
 }
 
-hitbox calc_afro_box(const asw_entity &entity, int exIndex) {
+hitbox calc_afro_box(const asw_player &entity, int exIndex) {
   hitbox afro;
   afro.type = hitbox::box_type::hurt;
 
@@ -308,7 +308,7 @@ hitbox calc_afro_box(const asw_entity &entity, int exIndex) {
   return afro;
 }
 
-hitbox calc_throw_box(const asw_entity &entity) {
+hitbox calc_throw_box(const asw_player &entity) {
   // Create a fake hitbox for throws to be displayed
   hitbox box;
   box.type = hitbox::box_type::grab;
@@ -355,13 +355,19 @@ void draw_hitboxes(const DrawTool &tool, const asw_entity &entity, bool active) 
     hitboxes.push_back(DrawnHitbox(box));
   }
 
-  // hacky afro hurtbox
-  if (entity.is_player && entity.afro && !entity.is_strike_invuln())
-    hitboxes.push_back(calc_afro_box(entity, count));
+  
+  if(entity.is_player){
+    asw_player& player = *(asw_player*)&entity;
+    
+    // hacky afro hurtbox
+    if (player.afro && !player.is_strike_invuln())
+    hitboxes.push_back(calc_afro_box(player, count));
 
-  // Add throw hitbox if in use
-  if (entity.throw_range >= 0 && active)
-    hitboxes.push_back(calc_throw_box(entity));
+    // Add throw hitbox if in use
+    if (player.throw_range >= 0 && active)
+      hitboxes.push_back(calc_throw_box(player));
+  }
+  
 
   for (auto i = 0; i < hitboxes.size(); i++) {
     // Clip outlines

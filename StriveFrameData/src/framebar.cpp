@@ -7,12 +7,12 @@
 #define DEBUG_PRINT(...)
 #endif
 #define ENABLE_PRJT_DEBUG false
-#define ENABLE_STATE_DEBUG false
+#define ENABLE_STATE_DEBUG true
 
 namespace {
   /* Combo Triger Settings */
   constexpr int COMBO_ENDED_TIME = 20; // time idle before combo is considered over
-  constexpr int COMBO_NUM_TIME = 5;    // minimum time of unchanging states to display state length
+  constexpr int COMBO_NUM_TIME = 9;    // minimum time of unchanging states to display state length
   constexpr int COMBO_TRUNC_TIME = 10; // max segments for unchanging state, after which the segments are truncated
   constexpr double COLOR_DECAY = 0.9f;
 
@@ -76,6 +76,26 @@ std::wstring makeStatsText(const MoveStats &stats, int advantage) {
   auto &last = stats.actives.back();
   builder << last.first << ", Recovery: " << last.second << L", Advantage: " << advantage;
   return builder.str();
+}
+
+std::string safeRead(const char* target){
+  const size_t len = strnlen_s(target,30);
+  return std::string(target,len);
+}
+
+
+bool hasCancelOptions(const asw_player& player) {
+  const auto& datas = player.move_datas;
+
+  for(size_t idx = 0; idx < datas.move_count; ++idx){
+    const auto& move = datas.moves[idx];
+    if((move.active_flag & SAF_FLEX_CHAIN && player.can_whiff_cancel()) || (move.active_flag & SAF_CHAIN && player.can_gatling_cancel())){
+      auto name = convertToWide(safeRead(datas.moves[idx].get_name()));
+      RC::Output::send<LogLevel::Warning>(STR("    whiff: Idx: {}, Name: {}\n"), idx, name);
+      return true;
+    }
+  }
+  return false;
 }
 
 // ############################################################
@@ -247,31 +267,6 @@ void PlayerData::resetFrames() {
     segments[idx] = FrameInfo();
 }
 
-void PlayerData::updateSegment(int prev_idx, int curr_idx) {
-  // previous section has ended
-  auto &previous = segments[prev_idx];
-  auto &active = segments[curr_idx];
-  previous.trunc = 0;
-
-  active.type = current_state.type;
-
-  if (current_state.state_time == 1) {
-    DEBUG_PRINT(STR("New Section for One\n"));
-    active.decay = 1.0;
-    // ... and was long enough that we want to print length
-    if (previous_state.state_time > COMBO_NUM_TIME) {
-      DEBUG_PRINT(STR("Last section requires truncating\n"));
-      previous.trunc = previous_state.state_time;
-    }
-  } else {
-    DEBUG_PRINT(STR("Same Section for One\n"));
-    // we are drawing this section, fade its color slightly
-    // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
-    active.decay = previous.decay * COLOR_DECAY;
-  }
-  active.border = current_state.anyProjectiles();
-}
-
 // ############################################################
 // PlayerData
 
@@ -289,10 +284,55 @@ void PlayerData::updateMove() {
     working_stats = MoveStats();
   }
 }
+
+void PlayerData::updateSegment(int prev_idx, int curr_idx) {
+  // previous section has ended
+  auto &previous = segments[prev_idx];
+  auto &active = segments[curr_idx];
+  previous.trunc = 0;
+
+  active.state = current_state.type;
+  active.mods = MT_None;
+  if(current_state.can_cancel){
+    active.mods |= MT_Cancellable;
+  }
+
+  if (current_state.state_time == 1) {
+    DEBUG_PRINT(STR("New Section for One\n"));
+
+    // don't delim starts of cancel frames
+    previous.mods |= MT_SegmentEnd;
+    active.decay = 1.0;
+
+    // ... and was long enough that we want trucated
+    if (previous_state.state_time > COMBO_NUM_TIME) {
+      DEBUG_PRINT(STR("Last section requires truncating\n"));
+      previous.trunc = previous_state.state_time;
+    }
+  } else {
+    DEBUG_PRINT(STR("Same Section for One\n"));
+    if(previous_state.can_cancel != current_state.can_cancel && previous_state.trunc_time > COMBO_NUM_TIME){
+      previous.trunc = previous_state.state_time;
+    }
+    // we are drawing this section, fade its color slightly
+    // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
+    active.decay = previous.decay * COLOR_DECAY;
+  }
+  if(current_state.anyProjectiles()){
+    active.mods |= MT_Projectile;
+  }
+}
+
 void PlayerData::initSegment(int curr_idx) {
-  auto &active_segment = segments[curr_idx];
-  active_segment.type = current_state.type;
-  active_segment.border = current_state.anyProjectiles();
+  auto &active = segments[curr_idx];
+  active.state = current_state.type;
+  active.mods = MT_None;
+  if(current_state.anyProjectiles()){
+    active.mods |= MT_Projectile;
+  }
+  if(current_state.can_cancel){
+    active.mods |= MT_Cancellable;
+  }
 }
 void PlayerData::truncSegment(int prev_idx) {
   auto &prev_segment = segments[prev_idx];
@@ -301,7 +341,8 @@ void PlayerData::truncSegment(int prev_idx) {
 
 void PlayerData::fadeSegment(int fade_idx) {
   auto &fade_segment = segments[fade_idx];
-  fade_segment.type = PST_None;
+  fade_segment.state = PST_None;
+  fade_segment.mods = MT_None;
 }
 
 // ############################################################
@@ -348,6 +389,8 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last) {
   else
     type = PST_Busy;
 
+  can_cancel = (type == PST_Recovering || type == PST_Busy) && hasCancelOptions(player);
+
   // active stall prevents the first active frame (before the hit is registered) from appearing active
   // this helps match Dustloop and looks more intuitive
   if (player_active || projectile_active) {
@@ -356,14 +399,18 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last) {
 
   // state_time is used for determining how long was spent in each PST state for a single BB state script
   // type != PST_Busy to prevent interuptible post move animations (that are idle equivalent) or chained stuns from breaking segments
+  
   if ((same_script || type != PST_Busy) && last.type == type) {
     state_time = (last.state_time < 1000) ? last.state_time + 1 : last.state_time;
+    bool cancel_break = ModMenu::instance().cancelEnabled() && last.can_cancel != can_cancel; 
+    trunc_time = cancel_break ? 1 : last.trunc_time + 1;
   } else {
     state_time = 1;
+    trunc_time = 1;
   }
 
   if constexpr (ENABLE_STATE_DEBUG) {
-    auto format = STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, plact:{}, pjact:{}, any:{}, st:{}, cin:{}, hbc:{}, trw:{}\n");
+    auto format = STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, plact:{}, pjact:{}, any:{}, st:{}, cin:{}, hbc:{}, trw:{}, f:{}, c:{}, atk: {}\n");
     std::wstring local_script = convertToWide(player.get_BB_state());
     std::wstring local_sprite = convertToWide(player.get_sprite_name());
     auto nca = normal_canact ? L"Y" : L"N";
@@ -374,7 +421,9 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last) {
     auto pja = projectile_active ? L"Y" : L"N";
     auto aja = any_prjt ? L"Y" : L"N";
     auto cin = player.cinematic_counter ? L"Y" : L"N";
-    RC::Output::send<LogLevel::Warning>(format, local_script, time, local_sprite, nca, sca, bs, hs, pla, pja, aja, state_time, cin, player.hitbox_count, player.throw_range);
+    auto flex = player.can_whiff_cancel() ? L"Y" : L"N";
+    auto cancel = player.can_gatling_cancel()  ? L"Y" : L"N";
+    RC::Output::send<LogLevel::Warning>(format, local_script, time, local_sprite, nca, sca, bs, hs, pla, pja, aja, state_time, cin, player.hitbox_count, player.throw_range, flex, cancel, player.attack_flag);
   }
 }
 
@@ -386,18 +435,28 @@ FrameBar::Data::Data()
   resetFrames();
 }
 
-void FrameBar::Data::drawFrame(const Pallete& scheme, bool fade, const FrameInfo &info, int top, int left) {
-  if (info.type != PST_None) {
-    if (info.border) {
-      tool.drawRect(left - BORDER_THICKNESS, top - BORDER_THICKNESS, SEG_WIDTH + 2 * BORDER_THICKNESS, SEG_HEIGHT + 2 * BORDER_THICKNESS, scheme.projectile_color);
+void FrameBar::Data::drawFrame(const CurrentOptions& scheme, const FrameInfo &info, int top, int left) {
+  if (info.state != PST_None) {
+    if (info.mods & MT_Projectile) {
+      tool.drawRect(left - BORDER_THICKNESS, top - BORDER_THICKNESS, SEG_WIDTH + 2 * BORDER_THICKNESS, SEG_HEIGHT + 2 * BORDER_THICKNESS, scheme.palette.background_color);
+    }
+    
+    auto color = scheme.palette.state_colors[info.state];
+    if(scheme.show_fade) color = color * info.decay;
+    tool.drawRect(left, top, SEG_WIDTH, SEG_HEIGHT, color);
+
+    if(scheme.show_delim && info.mods & MT_SegmentEnd) {
+      tool.drawRect(left + SEG_WIDTH, top - BORDER_THICKNESS, BORDER_THICKNESS, SEG_HEIGHT + 2 * BORDER_THICKNESS, color_white);
     }
 
-    auto color = scheme.state_colors[info.type];
-    if(fade) color = color * info.decay;
-    tool.drawRect(left, top, SEG_WIDTH, SEG_HEIGHT, color);
+    if(scheme.show_cancels && info.mods & MT_Cancellable) {
+      constexpr int CANCEL_HEIGHT = SEG_HEIGHT / 3;
+      tool.drawRect(left, top + SEG_HEIGHT - CANCEL_HEIGHT, SEG_WIDTH, CANCEL_HEIGHT, color_white);
+    }
+
     if (info.trunc > 0) {
       auto text = std::to_wstring(info.trunc);
-      int text_left = left - (text.size() - 1) * 16 + 2;
+      int text_left = left - (text.size() - 1) * 17 + 2;
       tool.drawOutlinedText(text_left, top, Unreal::FString(text.c_str()), BAR_TEXT_SIZE);
     }
   }
@@ -503,7 +562,7 @@ void FrameBar::Data::addFrame() {
     int prev_idx = (current_segment_idx + FRAME_SEGMENTS - 1) % FRAME_SEGMENTS;
 
     // we are truncating, update truncated
-    if (data.first.current_state.state_time > COMBO_TRUNC_TIME && data.second.current_state.state_time > COMBO_TRUNC_TIME) {
+    if (data.first.current_state.trunc_time > COMBO_TRUNC_TIME && data.second.current_state.trunc_time > COMBO_TRUNC_TIME) {
       doBoth(&PlayerData::truncSegment, prev_idx);
       return;
     }
@@ -537,7 +596,7 @@ void FrameBar::Data::draw() {
   tool.update();
 
   auto& menu = ModMenu::instance();
-  auto& scheme = menu.getScheme();
+  auto options = menu.getScheme();
   bool fade = menu.fadeEnabled();
 
   auto player_one_info = makeStatsText(data.first.displayed_stats, advantage);
@@ -546,13 +605,13 @@ void FrameBar::Data::draw() {
   tool.drawOutlinedText(BAR_LEFT, INFO_ONE_LOC, Unreal::FString(player_one_info.c_str()), BAR_TEXT_SIZE);
   tool.drawOutlinedText(BAR_LEFT, INFO_TWO_LOC, Unreal::FString(player_two_info.c_str()), BAR_TEXT_SIZE);
 
-  tool.drawRect(BAR_LEFT, BAR_ONE_TOP, BAR_WIDTH, BAR_HEIGHT, scheme.background_color);
-  tool.drawRect(BAR_LEFT, BAR_TWO_TOP, BAR_WIDTH, BAR_HEIGHT, scheme.background_color);
+  tool.drawRect(BAR_LEFT, BAR_ONE_TOP, BAR_WIDTH, BAR_HEIGHT, options.palette.background_color);
+  tool.drawRect(BAR_LEFT, BAR_TWO_TOP, BAR_WIDTH, BAR_HEIGHT, options.palette.background_color);
 
   for (int idx = 0; idx < FRAME_SEGMENTS; ++idx) {
     int left = BAR_LEFT + (SEG_TOTAL * idx) + SEG_SPACING;
-    drawFrame(scheme, fade, data.first.segments[idx], SEGS_ONE_TOP, left);
-    drawFrame(scheme, fade, data.second.segments[idx], SEGS_TWO_TOP, left);
+    drawFrame(options,  data.first.segments[idx], SEGS_ONE_TOP, left);
+    drawFrame(options, data.second.segments[idx], SEGS_TWO_TOP, left);
   }
 }
 
