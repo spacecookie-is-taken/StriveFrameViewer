@@ -1,3 +1,6 @@
 [submodule "StriveHitboxes/minhook"]
 	path = StriveHitboxes/minhook
 	url = https://github.com/TsudaKageyu/minhook.git
+[submodule "RE-UE4SS"]
+	path = RE-UE4SS
+	url = https://github.com/Chitaso/RE-UE4SS.git
