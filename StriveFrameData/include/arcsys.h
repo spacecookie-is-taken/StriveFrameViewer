@@ -20,9 +20,9 @@ public:
 
 class AREDGameState_Battle : public AGameState {
 public:
-  FIELD(0xBA0, class asw_engine*, Engine);
-	FIELD(0xBA8, class asw_scene*, Scene);
-  FIELD(0xBC0, class asw_events*, Events);
+  FIELD(0xBA8, class asw_engine*, Engine);
+	FIELD(0xBB0, class asw_scene*, Scene);
+  FIELD(0xBC8, class asw_events*, Events);
 };
 
 class player_block {
@@ -580,17 +580,17 @@ class asw_player : public asw_entity {
 
 public:
     
-    FIELD(0x60E0, int, enable_flag); // original: 0x6080 -> fixed: 0x60E0 (+0x060)
-    FIELD(0x60EC, int, attack_flag); // original: 0x5F90 -> fixed: 0x60EC (+0x060)
-    FIELD(0x6100, int, blockstun); // original: 0x60A0 + 0x060 = 0x6100
-    FIELD(0x98C8, int, hitstun); // original: 0x9868 + 0x060 = 0x98C8
-    FIELD(0x993C, int, ply_PushColHeightLowAir);
-    FIELD(0xC2CC, ID_CMNACT, cur_cmn_action_id); // original: 0xC26C + 0x060 = 0xC2CC
-    FIELD(0xCFFC, int, slowdown_timer); // original: 0xCF9C + 0x060 = 0xCFFC
-    FIELD(0xFA60, MoveDataCollection, move_datas); 
-    FIELD(0xF230, int, afro); // m_IsAfro Header: 0xed28, Offset: 0x508 
-	  FIELD(0xF268, int, afroW);
-	  FIELD(0xF26C, int, afroH);
+    FIELD(0x6140, int, enable_flag); // original: 0x6080 -> fixed: 0x60E0 (+0x060)
+    FIELD(0x614c, int, attack_flag); // original: 0x5F90 -> fixed: 0x60EC (+0x060)
+    FIELD(0x6160, int, blockstun); // original: 0x60A0 + 0x060 = 0x6100
+    FIELD(0x9928, int, hitstun); // original: 0x9868 + 0x060 = 0x98C8
+    FIELD(0x999c, int, ply_PushColHeightLowAir);
+    FIELD(0xc32c, ID_CMNACT, cur_cmn_action_id); // original: 0xC26C + 0x060 = 0xC2CC
+    FIELD(0xd05c, int, slowdown_timer); // original: 0xCF9C + 0x060 = 0xCFFC
+    FIELD(0xfac0, MoveDataCollection, move_datas);
+    FIELD(0xf290, int, afro); // m_IsAfro Header: 0xed28, Offset: 0x508
+	  FIELD(0xf2c8, int, afroW);
+	  FIELD(0xf2cc, int, afroH);
 
     int calc_advantage();
     bool is_in_hitstun() const;
