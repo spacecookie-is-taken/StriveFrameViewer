@@ -329,7 +329,7 @@ public:
     ModName = STR("Strive Frame Data");
     ModVersion = STR("1.04");
     ModDescription = STR("A tool to display frame advantage.");
-    ModAuthors = STR("pbozai");
+    ModAuthors = STR("pbozai, Sevoi");
     UpdateBattle_Detour = nullptr;
     MatchStart_Detour = nullptr;
     // Do not change this unless you want to target a UE4SS version
