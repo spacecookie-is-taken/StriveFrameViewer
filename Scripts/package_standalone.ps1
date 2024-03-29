@@ -27,10 +27,10 @@ if(Test-Path -Path "$Package_Dir"){
 
 Write-Host "Creating Package"
 New-Item -ItemType Directory "$Package_Dir\Mods\StriveFrameViewer\dlls" | Out-Null
-New-Item -ItemType Directory "$Package_Dir\UE4SS_Signatures" | Out-Null
+#New-Item -ItemType Directory "$Package_Dir\UE4SS_Signatures" | Out-Null
 Copy-Item "$Mod_DLL" "$Package_Dir\Mods\StriveFrameViewer\dlls\main.dll" | Out-Null
 Copy-Item "$UE4SS_DLL" "$Package_Dir\UE4SS.dll" | Out-Null
 Copy-Item "$Proxy_DLL" "$Package_Dir\dwmapi.dll" | Out-Null
 Copy-Item "$Project_Dir\prereqs\mods.txt" "$Package_Dir\Mods\mods.txt" | Out-Null
 Copy-Item "$Project_Dir\prereqs\UE4SS-settings.ini" "$Package_Dir\UE4SS-settings.ini" | Out-Null
-Copy-Item "$Project_Dir\prereqs\FText_Constructor.lua" "$Package_Dir\UE4SS_Signatures\FText_Constructor.lua" | Out-Null
+#Copy-Item "$Project_Dir\prereqs\FText_Constructor.lua" "$Package_Dir\UE4SS_Signatures\FText_Constructor.lua" | Out-Null
