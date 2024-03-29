@@ -591,6 +591,7 @@ void FrameBar::Data::reset() {
   data.first.current_state = PlayerState();
   data.second.current_state = PlayerState();
   ptracker.reset();
+  resetFrames();
 }
 void FrameBar::Data::draw() {
   tool.update();

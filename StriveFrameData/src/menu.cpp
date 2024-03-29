@@ -199,6 +199,11 @@ ModMenu::~ModMenu() = default;
 ModMenu::ModMenu() 
 : tool(CENTER_X_RATIO, CENTER_Y_RATIO) {
   settings.resize(OPTION_COUNT, 1);
+
+  // Turn some values off by default
+  settings[1] = 0;
+  settings[3] = 0;
+  settings[4] = 0;
 }
 
 void ModMenu::update(bool bar_toggled, bool hitbox_toggled, bool menu_toggled) {

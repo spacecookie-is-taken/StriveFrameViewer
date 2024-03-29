@@ -137,13 +137,6 @@ public:
   bool roundActive = false;
 
 } game_state;
-struct ConfigMgr {
-  bool overlayEnabled = true;
-  bool truncEnabled = true;
-  bool dustloopEnabled = false;
-  bool fadeEnabled = true;
-  int resetButton = 7;
-} cfg;
 
 constexpr int TOGGLE_FRAMEBAR_BUTTON = VK_F1;
 constexpr int TOGGLE_HITBOX_BUTTON = VK_F2;
