@@ -91,7 +91,7 @@ bool hasCancelOptions(const asw_player& player) {
     const auto& move = datas.moves[idx];
     if((move.active_flag & SAF_FLEX_CHAIN && player.can_whiff_cancel()) || (move.active_flag & SAF_CHAIN && player.can_gatling_cancel())){
       auto name = convertToWide(safeRead(datas.moves[idx].get_name()));
-      RC::Output::send<LogLevel::Warning>(STR("    whiff: Idx: {}, Name: {}\n"), idx, name);
+//      RC::Output::send<LogLevel::Warning>(STR("    whiff: Idx: {}, Name: {}\n"), idx, name);
       return true;
     }
   }

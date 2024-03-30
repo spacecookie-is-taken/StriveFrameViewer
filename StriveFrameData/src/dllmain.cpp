@@ -335,6 +335,8 @@ public:
     // Do not change this unless you want to target a UE4SS version
     // other than the one you're currently building with somehow.
     // ModIntendedSDKVersion = STR("2.6");
+
+    Output::send<LogLevel::Verbose>(STR("Strive Frame Viewer Started\n"));
   }
 
   ~StriveFrameData() override {}
