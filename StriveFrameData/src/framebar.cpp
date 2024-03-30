@@ -7,7 +7,7 @@
 #define DEBUG_PRINT(...)
 #endif
 #define ENABLE_PRJT_DEBUG false
-#define ENABLE_STATE_DEBUG true
+#define ENABLE_STATE_DEBUG false
 
 namespace {
   /* Combo Triger Settings */
