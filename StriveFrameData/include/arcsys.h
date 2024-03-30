@@ -606,6 +606,7 @@ public:
     bool is_stagger() const;
     bool is_guard_crush() const;
     bool is_stunned() const;
+    bool is_jump_recovery() const;
 
     bool is_stance_idle() const;
 

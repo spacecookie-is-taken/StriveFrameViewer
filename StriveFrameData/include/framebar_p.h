@@ -74,7 +74,7 @@ public:
   bool can_cancel = false;
 
   PlayerState() = default;
-  PlayerState(asw_player &player, const PlayerState &last);
+  PlayerState(asw_player &player, const PlayerState &last, bool combo_active);
 
   bool isStunned() const { return type == PST_HitStunned || type == PST_BlockStunned; }
   bool anyProjectiles() const { return (type == PST_ProjectileAttacking) || any_prjt; }

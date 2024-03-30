@@ -355,6 +355,10 @@ bool asw_player::is_stunned() const {
   return is_in_hitstun() || is_in_blockstun() || is_knockdown() || is_roll() || is_stagger() || is_guard_crush();
 }
 
+bool asw_player::is_jump_recovery() const {
+  return cur_cmn_action_id == ID_CmnActJumpLanding || cur_cmn_action_id == ID_CmnActLandingStiff;
+}
+
 const char* asw_entity::get_BB_state() const {
   if (!first_script_cmd) return nullptr;
 

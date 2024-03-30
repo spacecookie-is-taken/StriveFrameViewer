@@ -348,7 +348,7 @@ void PlayerData::fadeSegment(int fade_idx) {
 // ############################################################
 // PlayerState
 
-PlayerState::PlayerState(asw_player &player, const PlayerState &last) {
+PlayerState::PlayerState(asw_player &player, const PlayerState &last, bool combo_active) {
   time = player.action_time;
 
   // assumes a sprite won't come out on this frame, this is false
@@ -363,6 +363,7 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last) {
   const bool hit_stunned = player.is_in_hitstun();
   const bool knockdown = player.is_knockdown();
   const bool player_active = player.is_active() && (player.hitbox_count > 0 || player.throw_range >= 0);
+  const bool jump_recovery = player.is_jump_recovery();
 
   bool projectile_active = false;
   for (auto &iter : ptracker.ownership) {
@@ -374,7 +375,7 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last) {
 
   // TODO: account for 0-lifetime projectiles that spawn and immediately self destruct, such as Asuka's 808
 
-  if (normal_canact || stance_canact)
+  if (normal_canact || stance_canact || (jump_recovery && !combo_active))
     type = PST_Idle;
   else if (block_stunned)
     type = PST_BlockStunned;
@@ -484,8 +485,8 @@ void FrameBar::Data::addFrame() {
 
   // crate updated states
   std::pair<PlayerState, PlayerState> next = {
-      PlayerState(p_one, data.first.current_state),
-      PlayerState(p_two, data.second.current_state)};
+      PlayerState(p_one, data.first.current_state, combo_active),
+      PlayerState(p_two, data.second.current_state, combo_active)};
 
   if (p_one.cinematic_counter || p_two.cinematic_counter) {
     if constexpr (ENABLE_STATE_DEBUG) {
