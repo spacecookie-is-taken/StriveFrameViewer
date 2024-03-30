@@ -317,22 +317,44 @@ hitbox calc_throw_box(const asw_player &entity) {
   box.x = 0.f;
   box.w = (float)(pushbox_front + entity.throw_range);
 
-  if (entity.throw_box_top <= entity.throw_box_bottom) {
+  auto r_throwbox_top = entity.throw_box_top + 125000;
+  auto r_throwbox_bottom = entity.throw_box_bottom + 275000 ;
+
+  // This is the ground throw check, idk why
+//  if (entity.throw_box_top <= entity.throw_box_bottom) {
+  if (r_throwbox_top <= r_throwbox_bottom) {
     // No throw height, use pushbox height for display
     box.y = 0.f;
     box.h = (float)entity.pushbox_height();
     return box;
   }
 
+  // We are now doing air throw calcs
+
+  // Making so throwsbox go both sides
+  box.x -= box.w;
+  box.w *= 2;
+
   // In the air, the pushbox is offset upwards from the origin.
   int left, top, right, bottom;
   entity.get_pushbox(&left, &top, &right, &bottom);
+
+//  Output::send<LogLevel::Verbose>(STR("top: {}, bottom: {}\n"), r_throwbox_top, r_throwbox_bottom);
+//  Output::send<LogLevel::Verbose>(STR("Airborne: {}\n"), entity.airborne);
+
+
   /*
   box.y = (float)(entity.throw_box_bottom + top - entity.pos_y);
   box.h = (float)(entity.throw_box_top - entity.throw_box_bottom );
   */
-  box.y = (float)(entity.throw_box_bottom + top - bottom - entity.ply_PushColHeightLowAir);
-  box.h = (float)(entity.throw_box_top - entity.throw_box_bottom - top + bottom);
+//  box.y = (float)(entity.throw_box_bottom + top - bottom - entity.ply_PushColHeightLowAir);
+//  box.h = (float)(entity.throw_box_top - entity.throw_box_bottom - top + bottom);
+//  box.y = (float)(r_throwbox_bottom + top - bottom - entity.ply_PushColHeightLowAir);
+//  box.h = (float)(r_throwbox_top - r_throwbox_bottom - top + bottom);
+
+  box.y = (float) (r_throwbox_bottom- entity.ply_PushColHeightLowAir);
+  box.h = (float) (r_throwbox_top-r_throwbox_bottom);
+
   // box.h = 90000;
   return box;
 }
