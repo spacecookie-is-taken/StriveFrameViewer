@@ -588,9 +588,9 @@ public:
     FIELD(0xc32c, ID_CMNACT, cur_cmn_action_id); // original: 0xC26C + 0x060 = 0xC2CC
     FIELD(0xd05c, int, slowdown_timer); // original: 0xCF9C + 0x060 = 0xCFFC
     FIELD(0xfac0, MoveDataCollection, move_datas);
-    FIELD(0xf290, int, afro); // m_IsAfro Header: 0xed28, Offset: 0x508
-	  FIELD(0xf2c8, int, afroW);
-	  FIELD(0xf2cc, int, afroH);
+    FIELD(0xF548, int, afro); // m_IsAfro Header: 0xed28, Offset: 0x508
+	  FIELD(0xF580, int, afroW);
+	  FIELD(0xF584 , int, afroH);
 
     int calc_advantage();
     bool is_in_hitstun() const;
