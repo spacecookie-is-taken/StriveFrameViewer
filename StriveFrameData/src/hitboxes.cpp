@@ -361,6 +361,12 @@ hitbox calc_throw_box(const asw_player &entity) {
 
 void draw_hitboxes(const DrawTool &tool, const asw_entity &entity, bool active) {
   const auto count = entity.hitbox_count + entity.hurtbox_count;
+//
+//  std::uintptr_t address = reinterpret_cast<std::uintptr_t>(&entity);
+//  Output::send<LogLevel::Verbose>(STR("Entity: {}\n"), address);
+//  Output::send<LogLevel::Verbose>(STR("Active: {}\n"), active);
+//  Output::send<LogLevel::Verbose>(STR("Hitbox Count: {}\n"), entity.hitbox_count);
+//  Output::send<LogLevel::Verbose>(STR("Hurtbox Count: {}\n"), entity.hurtbox_count);
 
   std::vector<DrawnHitbox> hitboxes;
 
@@ -483,7 +489,9 @@ void drawAllBoxes() {
 
     const auto *attached = entity.attached;
     while (attached != nullptr) {
-      draw_hitboxes(tool, entity, active);
+//      Output::send<LogLevel::Verbose>(STR("Attached Entity\n"));
+
+      draw_hitboxes(tool, *attached, active);
       attached = attached->attached;
     }
 
