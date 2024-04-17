@@ -267,17 +267,12 @@ public:
 class asw_entity {
 
 public:
-    FIELD(0x18, bool, is_player);
+    FIELD(0x18, bool, active);
+    FIELD(0x20, bool, is_player);
 	FIELD(0x44, unsigned char, player_index);
 	FIELD(0x78, hitbox*, hitboxes);
 	FIELD(0x10C, int, hurtbox_count);
 	FIELD(0x110, int, hitbox_count);
-	//   _____    ____    _    _   _   _   _______   ______   _____  
-	//  / ____|  / __ \  | |  | | | \ | | |__   __| |  ____| |  __ \ 
-	// | |      | |  | | | |  | | |  \| |    | |    | |__    | |__) |
-	// | |      | |  | | | |  | | | . ` |    | |    |  __|   |  _  / 
-	// | |____  | |__| | | |__| | | |\  |    | |    | |____  | | \ \ 
-	//  \_____|  \____/   \____/  |_| \_|    |_|    |______| |_|  \_\ 
 	BIT_FIELD(0x1A8, 0x4000000, cinematic_counter);
 	FIELD(0x1C4, int, action_time);
 	FIELD(0x1E0, int, act_reg_0);
@@ -331,7 +326,7 @@ public:
 
     // m_ActionRequestInfo, Ghidra: 0x3674, 0x118 offset?)
     // Ghidra + 0x118 = 0x378C (from state_name)
-    FIELD(0x378C, ActionReqInfo, action_info); 
+    FIELD(0x378C, ActionReqInfo, action_info);
 
     // m_ActionRequestInfo, Ghidra: 0x36c4, 0x118 offset?)
     // Ghidra + 0x118 = 0x37DC (from state_name)
@@ -579,7 +574,6 @@ enum PLATTACK_FLAG
 class asw_player : public asw_entity {
 
 public:
-    
     FIELD(0x6140, int, enable_flag); // original: 0x6080 -> fixed: 0x60E0 (+0x060)
     FIELD(0x614c, int, attack_flag); // original: 0x5F90 -> fixed: 0x60EC (+0x060)
     FIELD(0x6160, int, blockstun); // original: 0x60A0 + 0x060 = 0x6100

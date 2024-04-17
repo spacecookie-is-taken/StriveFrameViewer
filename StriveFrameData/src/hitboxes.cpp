@@ -302,6 +302,9 @@ hitbox calc_afro_box(const asw_player &entity, int exIndex) {
 
   afro.h = static_cast<float>(entity.afroH);
   afro.w = static_cast<float>(entity.afroW);
+
+//  Output::send<LogLevel::Verbose>(STR("Extend Boxes: {} x {} y\n"), extend.x , extend.y);
+
   afro.x = extend.x - static_cast<float>(entity.afroW) / 2.f;
   afro.y = extend.y - static_cast<float>(entity.afroH) / 2.f;
 
@@ -361,7 +364,10 @@ hitbox calc_throw_box(const asw_player &entity) {
 
 void draw_hitboxes(const DrawTool &tool, const asw_entity &entity, bool active) {
   const auto count = entity.hitbox_count + entity.hurtbox_count;
-//
+
+  // assuming that
+  // entity.hitboxes = [hurtbox1, hurtbox2, ???]
+
 //  std::uintptr_t address = reinterpret_cast<std::uintptr_t>(&entity);
 //  Output::send<LogLevel::Verbose>(STR("Entity: {}\n"), address);
 //  Output::send<LogLevel::Verbose>(STR("Active: {}\n"), active);
@@ -369,16 +375,16 @@ void draw_hitboxes(const DrawTool &tool, const asw_entity &entity, bool active) 
 //  Output::send<LogLevel::Verbose>(STR("Hurtbox Count: {}\n"), entity.hurtbox_count);
 
   std::vector<DrawnHitbox> hitboxes;
-
   // Collect hitbox info
   for (auto i = 0; i < count; i++) {
     const auto &box = entity.hitboxes[i];
 
     // Don't show inactive hitboxes
-    if (box.type == hitbox::box_type::hit && !active)
+    if (box.type == hitbox::box_type::hit && !active) {
       continue;
-    else if (box.type == hitbox::box_type::hurt && entity.is_strike_invuln())
-      continue;
+    } else if (box.type == hitbox::box_type::hurt && entity.is_strike_invuln()) {
+        continue;
+    }
 
     hitboxes.push_back(DrawnHitbox(box));
   }
