@@ -97,7 +97,7 @@ class StateMgr {
   UREDGameCommon *GameCommon = nullptr;
   int last_mode = GAME_MODE_DEBUG_BATTLE;
   bool in_allowed_mode = false;
-  std::vector<int> allowed_modes = {GAME_MODE_TRAINING, GAME_MODE_REPLAY};
+  std::vector<int> allowed_modes = {GAME_MODE_TRAINING, GAME_MODE_REPLAY, GAME_MODE_MISSION, GAME_MODE_UNDECIDED};
 
 public:
   bool checkMode() {
@@ -106,7 +106,7 @@ public:
     }
     if (!GameCommon) return false;
     if (int current_mode = orig_GetGameMode(GameCommon); current_mode != last_mode) {
-      // RC::Output::send<LogLevel::Warning>(STR("Mode Change: {}\n"), current_mode);
+//       RC::Output::send<LogLevel::Warning>(STR("Mode Change: {}\n"), current_mode);
       last_mode = current_mode;
       in_allowed_mode = (std::find(allowed_modes.begin(), allowed_modes.end(), current_mode) != allowed_modes.end());
     }
