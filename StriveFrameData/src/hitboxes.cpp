@@ -392,14 +392,30 @@ void draw_hitboxes(const DrawTool &tool, const asw_entity &entity, bool active) 
   
   if(entity.is_player){
     asw_player& player = *(asw_player*)&entity;
-    
+
     // hacky afro hurtbox
-    if (player.afro && !player.is_strike_invuln())
-    hitboxes.push_back(calc_afro_box(player, count));
+    // Jank way of finding the last hitbox (since entity.hitboxes isn't actually an array i don't think???)
+    // for all hitboxes: -1000 < x,y < 1000 and w,y = 0
+    // honestly idk what's loaded next in the memory after the hitboxes array
+    if (player.afro && !player.is_strike_invuln()) {
+      for (int i = 1; i < 6; i++) {
+        if (-1000 > entity.hitboxes[count + i].x || -1000 > entity.hitboxes[count + i].y ||
+            entity.hitboxes[count + i].x > 1000 || entity.hitboxes[count + i].y > 1000 ||
+            entity.hitboxes[count + i].w != 0 || entity.hitboxes[count + i].h != 0) {
+
+//          Output::send<LogLevel::Verbose>(STR("Offset: {}\n"), i - 1);
+//          Output::send<LogLevel::Verbose>(STR("Afro Hitbox: x {} y {} w {} h {}\n"), entity.hitboxes[count + i - 1].x, entity.hitboxes[count + i - 1].y, entity.hitboxes[count + i - 1].w, entity.hitboxes[count + i - 1].h);
+//          Output::send<LogLevel::Verbose>(STR("Afro Hitbox +1: x {} y {} w {} h {}\n"), entity.hitboxes[count + i].x, entity.hitboxes[count + i].y, entity.hitboxes[count + i].w, entity.hitboxes[count + i].h);
+          hitboxes.push_back(calc_afro_box(player, count + i - 1));
+          break;
+        }
+      }
+    }
 
     // Add throw hitbox if in use
-    if (player.throw_range >= 0 && active)
+    if (player.throw_range >= 0 && active) {
       hitboxes.push_back(calc_throw_box(player));
+    }
   }
   
 
