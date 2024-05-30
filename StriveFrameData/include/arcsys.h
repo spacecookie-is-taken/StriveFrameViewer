@@ -20,9 +20,9 @@ public:
 
 class AREDGameState_Battle : public AGameState {
 public:
-  FIELD(0xBA8, class asw_engine*, Engine);
-	FIELD(0xBB0, class asw_scene*, Scene);
-  FIELD(0xBC8, class asw_events*, Events);
+  FIELD(0xBB0, class asw_engine*, Engine);
+	FIELD(0xBB8, class asw_scene*, Scene);
+  FIELD(0xBD0, class asw_events*, Events);
 };
 
 class player_block {
