@@ -266,16 +266,15 @@ void hook_AHUDPostRender(void *hud) {
     return;
   }
 
+  if (!DrawTool::instance().update(hud)) {
+    auto& menu = ModMenu::instance();
+    menu.draw();
+    if(menu.hitboxEnabled()) drawAllBoxes();
+    if(menu.barEnabled()) the_bar.draw();
+  }
+
   if (input_checker.advancing()) return;
-
   orig_AHUDPostRender(hud);
-
-  if (!DrawTool::instance().update(hud)) return;
-
-  auto& menu = ModMenu::instance();
-  menu.draw();
-  if(menu.hitboxEnabled()) drawAllBoxes();
-  if(menu.barEnabled()) the_bar.draw();
 }
 void hook_ACamUpdateCamera(void *cam, float DeltaTime) {
   if (!game_state.checkMode()) {
