@@ -153,10 +153,10 @@ class AsyncInputChecker {
     for (const auto &input : inputs) {
       switch (input){
         case TOGGLE_FRAMEBAR_BUTTON:
-          framebar_toggled = true;
+          framebar_pressed = true;
           break;
         case TOGGLE_HITBOX_BUTTON:
-          hitbox_toggled = true;
+          hitbox_pressed = true;
           break;
         case PAUSE_BUTTON:
           isPaused = !isPaused;
@@ -165,7 +165,7 @@ class AsyncInputChecker {
           shouldAdvance = true;
           break;
         case TOGGLE_MENU_BUTTON:
-          menu_toggled = true;
+          menu_pressed = true;
           break;
         default:
           break;
@@ -190,9 +190,9 @@ public:
     shouldAdvance = false;
   }
 
-  bool framebar_toggled = false;
-  bool hitbox_toggled = false;
-  bool menu_toggled = false;
+  bool framebar_pressed = false;
+  bool hitbox_pressed = false;
+  bool menu_pressed = false;
 } input_checker;
 
 class UeTracker {
@@ -266,7 +266,7 @@ void hook_AHUDPostRender(void *hud) {
     return;
   }
 
-  if (!DrawTool::instance().update(hud)) {
+  if (DrawTool::instance().update(hud)) {
     auto& menu = ModMenu::instance();
     menu.draw();
     if(menu.hitboxEnabled()) drawAllBoxes();
@@ -294,10 +294,10 @@ void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
   input_checker.pause();
   if (input_checker.advancing()) return;
 
-  ModMenu::instance().update(input_checker.framebar_toggled, input_checker.hitbox_toggled, input_checker.menu_toggled);
-  input_checker.framebar_toggled = false;
-  input_checker.hitbox_toggled = false;
-  input_checker.menu_toggled = false;
+  ModMenu::instance().update(input_checker.framebar_pressed, input_checker.hitbox_pressed, input_checker.menu_pressed);
+  input_checker.framebar_pressed = false;
+  input_checker.hitbox_pressed = false;
+  input_checker.menu_pressed = false;
 
   game_state.checkRound();
   if (game_state.resetting) {

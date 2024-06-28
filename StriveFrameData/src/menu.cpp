@@ -201,15 +201,15 @@ ModMenu::ModMenu()
   settings.resize(OPTION_COUNT, 1);
 
   // Turn some values off by default
-  settings[1] = 0;
-  settings[3] = 0;
-  settings[4] = 0;
+  settings[HITBOX_INDEX] = 0;
+  settings[DELIM_INDEX] = 0;
+  settings[CANCEL_INDEX] = 0;
 }
 
-void ModMenu::update(bool bar_toggled, bool hitbox_toggled, bool menu_toggled) {
-  if(bar_toggled) changeSetting(FRAMEBAR_INDEX);
-  if(hitbox_toggled) changeSetting(HITBOX_INDEX);
-  if(menu_toggled) is_showing = !is_showing;
+void ModMenu::update(bool framebar_pressed, bool hitbox_pressed, bool menu_pressed) {
+  if(framebar_pressed) changeSetting(FRAMEBAR_INDEX);
+  if(hitbox_pressed) changeSetting(HITBOX_INDEX);
+  if(menu_pressed) is_showing = !is_showing;
 
   if(!is_showing) return;
 

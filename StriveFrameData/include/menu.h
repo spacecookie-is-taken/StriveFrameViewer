@@ -30,7 +30,7 @@ public:
   ~ModMenu();
   static ModMenu& instance();
 
-  void update(bool bar_toggled, bool hitbox_toggled, bool menu_toggled);
+  void update(bool framebar_pressed, bool hitbox_pressed, bool menu_pressed);
   void draw();
 
   bool barEnabled() const;
