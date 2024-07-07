@@ -1,5 +1,6 @@
 #include "menu.h"
 #include <string>
+#include <fstream>
 
 class RedInputChecker {
   unsigned short novel_inputs;
@@ -69,10 +70,6 @@ struct SettingsEntry {
 };
 
 namespace Settings {
-  SettingsEntry NULL_ENTRY = SettingsEntry{
-      OptionData{L"", 1, {L""}},
-      "null",
-      0};
   SettingsEntry FRAMEBAR = SettingsEntry{
       OptionData{
           L"Frame Bar:", 2, {L"< Disabled   >", L"< Enabled    >"}},
@@ -108,6 +105,9 @@ namespace Settings {
       &COLOR_SCHEME,
   };
 
+  const std::filesystem::path WORKING_DIRECTORY = UE4SSProgram::get_program().get_working_directory();
+  const auto CONFIG_PATH = WORKING_DIRECTORY / "StriveFrameViewer.txt";
+
   // TODO: figure out if I want to statically define or just do a name find
   size_t FRAMEBAR_INDEX = 0;
   size_t HITBOX_INDEX = 1;
@@ -120,6 +120,56 @@ namespace Settings {
     }
 
     return -1;
+  }
+
+  void readConfig() {
+    std::ifstream configFile(CONFIG_PATH);
+
+    if (!configFile) {
+      return;
+    }
+
+    std::string line;
+    while (std::getline(configFile, line)) {
+      size_t pos = line.find('=');
+      if (pos == std::string::npos) continue;
+
+      std::string key = line.substr(0, pos);
+      int val;
+
+      try {
+        val = std::stoi(line.substr(pos + 1));
+      } catch (...) {
+//        RC::Output::send<LogLevel::Verbose>(STR("Could not find {}\n"), line);
+        continue;
+      }
+
+      int index = indexById(key);
+      if (index == -1) {
+//        RC::Output::send<LogLevel::Verbose>(STR("Could not find {}\n"), line);
+        continue;
+      }
+
+      settings[index]->value = val;
+    }
+
+    configFile.close();
+  }
+
+  void saveConfig() {
+    std::ofstream configFile(CONFIG_PATH);
+
+    if (!configFile) {
+      RC::Output::send<LogLevel::Error>(STR("Unable to save config file\n"));
+      return;
+    }
+
+    for (auto &entry : settings) {
+      configFile << entry->id_ << "=" << entry->value << "\n";
+    }
+
+    configFile.close();
+    RC::Output::send<LogLevel::Verbose>(STR("Saved config file\n"));
   }
 }
 
@@ -230,15 +280,9 @@ size_t rotateVal(size_t val, bool positive, size_t max) {
 // TODO later: maybe instead of idx do SettingsEntry entry
 void ModMenu::changeSetting(size_t idx, bool right) {
   auto& setting = Settings::settings[idx];
-
-  RC::Output::send<LogLevel::Verbose>(std::to_wstring(setting->value));
-  RC::Output::send<LogLevel::Verbose>(std::to_wstring(Settings::HITBOXES.value));
-
   setting->value = rotateVal(setting->value, right, setting->display.count);
 
-  RC::Output::send<LogLevel::Verbose>(std::to_wstring(setting->value));
-  RC::Output::send<LogLevel::Verbose>(std::to_wstring(Settings::HITBOXES.value));
-
+  Settings::saveConfig();
 }
 
 ModMenu &ModMenu::instance() {
@@ -249,6 +293,7 @@ ModMenu &ModMenu::instance() {
 ModMenu::~ModMenu() = default;
 ModMenu::ModMenu()
 : tool(CENTER_X_RATIO, CENTER_Y_RATIO) {
+  Settings::readConfig();
 }
 
 void ModMenu::update(bool framebar_pressed, bool hitbox_pressed, bool menu_pressed) {
