@@ -18,7 +18,7 @@ struct CurrentOptions {
 class ModMenu {
   DrawContext tool;
 
-  std::vector<int> settings;
+//  std::vector<int> settings;
 
   bool is_showing = false;
   int cursor_position = 0;
