@@ -364,6 +364,7 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last, bool combo
   const bool knockdown = player.is_knockdown();
   const bool player_active = player.is_active() && (player.hitbox_count > 0 || player.throw_range >= 0);
   const bool jump_recovery = player.is_jump_recovery();
+  const bool is_dash = player.is_fdash();
 
   bool projectile_active = false;
   for (auto &iter : ptracker.ownership) {
@@ -389,6 +390,11 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last, bool combo
     type = PST_Recovering;
   else
     type = PST_Busy;
+
+  // Quick hotfix for gio/leo dashes
+  if (type == PST_Idle && is_dash && ModMenu::instance().dashEnabled()) {
+    type = PST_Dash;
+  }
 
   can_cancel = (type == PST_Recovering || type == PST_Busy) && hasCancelOptions(player);
 

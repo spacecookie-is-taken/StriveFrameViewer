@@ -95,14 +95,19 @@ namespace Settings {
       OptionData{L"Color Scheme:", 4, {L"< SF6        >", L"< Classic    >", L"< Dustloop   >", L"< Colorblind >"}},
       "color_scheme",
       1};
+  SettingsEntry SHOW_DASH_FRAMES = SettingsEntry{
+    OptionData{L"Show Dash Frames:", 2, {L"< Disabled   >", L"< Enabled    >"}},
+        "show_dash",
+        0};
 
   std::array<SettingsEntry*, 6> settings = {
       &FRAMEBAR,
       &HITBOXES,
       &FADE,
       &DELIM,
-      &SHOW_CANCEL,
+//      &SHOW_CANCEL,
       &COLOR_SCHEME,
+      &SHOW_DASH_FRAMES,
   };
 
   const std::filesystem::path WORKING_DIRECTORY = UE4SSProgram::get_program().get_working_directory();
@@ -225,7 +230,8 @@ namespace {
                   convSRGB(1, 182, 149, 255),  // Busy
                   convSRGB(205, 43, 103, 255), // Attacking
                   convSRGB(1, 111, 188, 255),  // Projectile
-                  convSRGB(1, 111, 188, 255)   // Recovering
+                  convSRGB(1, 111, 188, 255),   // Recovering
+                  convSRGB(26, 26, 26, 255),   // Forward Dash
               }},
       Palette{// CLASSIC
               FLinearColor{.8f, .1f, .1f, 1.f},
@@ -237,7 +243,8 @@ namespace {
                   FLinearColor{.7f, .7f, .1f, .9f}, // Busy
                   FLinearColor{.8f, .1f, .1f, .9f}, // Attacking
                   FLinearColor{.8f, .4f, .1f, .9f}, // Projectile
-                  FLinearColor{.8f, .4f, .1f, .9f}  // Recovering
+                  FLinearColor{.8f, .4f, .1f, .9f},  // Recovering
+                  FLinearColor{.2f, .2f, .2f, .9f}, // Forward Dash
               }},
       Palette{// DUSTLOOP
               convSRGB(255, 0, 0, 255),
@@ -249,7 +256,8 @@ namespace {
                   convSRGB(54, 179, 126, 255),  // Busy
                   convSRGB(255, 93, 93, 255),   // Attacking
                   convSRGB(0, 105, 182, 255),   // Projectile
-                  convSRGB(0, 105, 182, 255)    // Recovering
+                  convSRGB(0, 105, 182, 255),    // Recovering
+                  convSRGB(128, 128, 128, 255), // Forward Dash
               }},
       Palette{// COLORBLIND
               FLinearColor{.8f, .1f, .1f, 1.f},
@@ -261,7 +269,8 @@ namespace {
                   FLinearColor{.7f, .7f, .1f, .9f}, // Busy
                   FLinearColor{.8f, .1f, .1f, .9f}, // Attacking
                   FLinearColor{.8f, .4f, .1f, .9f}, // Projectile
-                  FLinearColor{.8f, .4f, .1f, .9f}  // Recovering
+                  FLinearColor{.8f, .4f, .1f, .9f},  // Recovering
+                  FLinearColor{.2f, .2f, .2f, .9f}, // Forward Dash
               }},
   };
 }
@@ -335,6 +344,7 @@ bool ModMenu::hitboxEnabled() const { return Settings::HITBOXES.value; }
 bool ModMenu::fadeEnabled() const { return Settings::FADE.value; }
 bool ModMenu::delimEnabled() const { return Settings::DELIM.value; }
 bool ModMenu::cancelEnabled() const { return Settings::SHOW_CANCEL.value; }
+bool ModMenu::dashEnabled() const { return Settings::SHOW_DASH_FRAMES.value; }
 
 CurrentOptions ModMenu::getScheme() const {
   return CurrentOptions{color_palettes[Settings::COLOR_SCHEME.value], fadeEnabled(), delimEnabled(), cancelEnabled()};

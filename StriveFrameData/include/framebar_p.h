@@ -17,6 +17,7 @@ enum PlayerStateType {
   PST_Attacking,
   PST_ProjectileAttacking,
   PST_Recovering,
+  PST_Dash,
   PST_None,
   PST_End
 };

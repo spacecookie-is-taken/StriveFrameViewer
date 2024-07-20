@@ -5,7 +5,7 @@
 struct Palette {
   FLinearColor projectile_color;
   FLinearColor background_color;
-  FLinearColor state_colors[7];
+  FLinearColor state_colors[8];
 };
 
 struct CurrentOptions {
@@ -38,6 +38,7 @@ public:
   bool fadeEnabled() const;
   bool delimEnabled() const;
   bool cancelEnabled() const;
+  bool dashEnabled() const;
 
   CurrentOptions getScheme() const;
 };
