@@ -220,7 +220,7 @@ namespace {
               convSRGB(0, 0, 0, 255),
               {
                   convSRGB(26, 26, 26, 255),   // IDLE
-                  convSRGB(253, 245, 46, 255), // Block
+                  convSRGB(253, 177, 46, 255), // Block
                   convSRGB(253, 245, 46, 255), // Hit
                   convSRGB(1, 182, 149, 255),  // Busy
                   convSRGB(205, 43, 103, 255), // Attacking
@@ -244,7 +244,7 @@ namespace {
               convSRGB(23, 28, 38, 255),
               {
                   convSRGB(128, 128, 128, 255), // IDLE
-                  convSRGB(233, 215, 4, 255),   // Block
+                  convSRGB(233, 172, 4, 255),   // Block
                   convSRGB(233, 215, 4, 255),   // Hit
                   convSRGB(54, 179, 126, 255),  // Busy
                   convSRGB(255, 93, 93, 255),   // Attacking
