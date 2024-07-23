@@ -181,13 +181,20 @@ public:
       return;
     }
     checkBinds();
-    while (isPaused && !shouldAdvance) {
-      checkBinds(true);
+
+    if (ModMenu::instance().pauseType() == 0) {
+      while (isPaused && !shouldAdvance) {
+        checkBinds(true);
+      }
     }
   }
   void reset() {
     isPaused = false;
     shouldAdvance = false;
+  }
+
+  bool cinematicShouldAdvance() {
+    return isPaused && !shouldAdvance;
   }
 
   bool framebar_pressed = false;
@@ -292,7 +299,8 @@ void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
   }
 
   input_checker.pause();
-  if (input_checker.advancing()) return;
+  if (ModMenu::instance().pauseType() == 0 && input_checker.advancing()) return;
+  if (ModMenu::instance().pauseType() == 1 && input_checker.cinematicShouldAdvance()) return;
 
   ModMenu::instance().update(input_checker.framebar_pressed, input_checker.hitbox_pressed, input_checker.menu_pressed);
   input_checker.framebar_pressed = false;

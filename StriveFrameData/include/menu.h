@@ -39,6 +39,7 @@ public:
   bool delimEnabled() const;
   bool cancelEnabled() const;
   bool dashEnabled() const;
+  int pauseType() const;
 
   CurrentOptions getScheme() const;
 };

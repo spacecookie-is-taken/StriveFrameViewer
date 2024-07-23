@@ -99,8 +99,12 @@ namespace Settings {
     OptionData{L"Show Dash Frames:", 2, {L"< Disabled   >", L"< Enabled    >"}},
         "show_dash",
         0};
+  SettingsEntry PAUSE_TYPE = SettingsEntry{
+      OptionData{L"Pause Type: ", 2, {L"<   Default   >", L"<  Cinematic  >"}},
+      "pause_type",
+      0};
 
-  std::array<SettingsEntry*, 6> settings = {
+  std::array<SettingsEntry*, 7> settings = {
       &FRAMEBAR,
       &HITBOXES,
       &FADE,
@@ -108,6 +112,7 @@ namespace Settings {
 //      &SHOW_CANCEL,
       &COLOR_SCHEME,
       &SHOW_DASH_FRAMES,
+      &PAUSE_TYPE,
   };
 
   const std::filesystem::path WORKING_DIRECTORY = UE4SSProgram::get_program().get_working_directory();
@@ -345,6 +350,7 @@ bool ModMenu::fadeEnabled() const { return Settings::FADE.value; }
 bool ModMenu::delimEnabled() const { return Settings::DELIM.value; }
 bool ModMenu::cancelEnabled() const { return Settings::SHOW_CANCEL.value; }
 bool ModMenu::dashEnabled() const { return Settings::SHOW_DASH_FRAMES.value; }
+int ModMenu::pauseType() const { return Settings::PAUSE_TYPE.value; }
 
 CurrentOptions ModMenu::getScheme() const {
   return CurrentOptions{color_palettes[Settings::COLOR_SCHEME.value], fadeEnabled(), delimEnabled(), cancelEnabled()};
