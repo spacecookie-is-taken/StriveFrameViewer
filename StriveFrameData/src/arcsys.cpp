@@ -398,6 +398,14 @@ bool asw_player::is_fdash() const {
   return player_state == "CmnActFDash";
 }
 
+bool asw_player::is_move(std::string_view moveId) const {
+  const char* player_state_raw = get_BB_state();
+  if (!player_state_raw) return false;
+  std::string_view player_state(player_state_raw);
+
+  return player_state == moveId;
+}
+
 MoveData* asw_player::get_current_move() const {
   int current_skill = action_info_reg.skill_id;
   if(current_skill != -1){

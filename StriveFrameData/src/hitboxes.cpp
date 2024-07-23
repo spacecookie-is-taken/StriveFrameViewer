@@ -221,8 +221,8 @@ void transform_hitbox_point(const DrawTool &tool, const asw_entity &entity, FVec
     TOO_MUCH_DEBUG(STR("--flipped: {},{}\n"), pos.x, pos.y);
   } else if (entity.opponent != nullptr) {
     // Throws hit on either side, so show it directed towards opponent
-    if (entity.get_pos_x() > entity.opponent->get_pos_x())
-      pos.x *= -1.f;
+//    if (entity.get_pos_x() > entity.opponent->get_pos_x())
+//      pos.x *= -1.f;
     TOO_MUCH_DEBUG(STR("--throw. flipped: {},{}\n"), pos.x, pos.y);
   }
 
@@ -317,62 +317,43 @@ hitbox calc_throw_box(const asw_player &entity) {
   box.type = hitbox::box_type::grab;
 
   const auto pushbox_front = entity.pushbox_width() / 2 + entity.pushbox_front_offset;
-  box.x = 0.f;
-  box.w = (float)(pushbox_front + entity.throw_range);
+  const int AIR_PUSHBOX_WIDTH_HALF = 50000;
+  const int AIR_PUSHBOX_HEIGHT_HALF = 75000;
 
-  auto r_throwbox_top = entity.throw_box_top + 125000;
-  auto r_throwbox_bottom = entity.throw_box_bottom + 275000 ;
-
-  // This is the ground throw check, idk why
-//  if (entity.throw_box_top <= entity.throw_box_bottom) {
-  if (r_throwbox_top <= r_throwbox_bottom) {
-    // No throw height, use pushbox height for display
+  // Ground throws have `activation range y xxx` as -1 for both
+  if (entity.activation_range_y_min == -1 && entity.activation_range_y_max == -1) {  // Ground throw calcs
+    box.x = 0.f;
+    box.w = (float)(pushbox_front + entity.throw_range);
     box.y = 0.f;
+
+    // No throw height, use pushbox height for display
     box.h = (float)entity.pushbox_height();
-    return box;
+  } else {  // Air calcs
+    // Basically only accounting for the x_min < 0 < x_max case; you can probably also account for x_min < x_max < 0 or 0 < x_min < x_max but I'm lazy
+    if (entity.activation_range_x_min < -1) {
+      box.x = (float) std::max(entity.activation_range_x_min, -entity.throw_range - 2 * AIR_PUSHBOX_WIDTH_HALF) + AIR_PUSHBOX_WIDTH_HALF;
+      box.w = (float) -box.x;
+    } else {
+      // box.w already preset
+      box.x = -(float)(pushbox_front + entity.throw_range);
+      box.w = -box.x;
+    }
+
+    if (entity.activation_range_x_max > -1) {
+      box.w += (float) std::min(entity.activation_range_x_max, entity.throw_range + 2 * AIR_PUSHBOX_WIDTH_HALF) - AIR_PUSHBOX_WIDTH_HALF;
+    } else {
+      box.w += (float) (pushbox_front + entity.throw_range);
+    }
+
+    box.y = (float) (entity.pushboxYUpperAir - entity.pushboxYLowerAir) / 2.0f + (float) (entity.activation_range_y_min + AIR_PUSHBOX_HEIGHT_HALF);
+    box.h = (float) (entity.activation_range_y_max - entity.activation_range_y_min) - AIR_PUSHBOX_HEIGHT_HALF * 2;
   }
 
-  // We are now doing air throw calcs
-
-  // Making so throwsbox go both sides
-  box.x -= box.w;
-  box.w *= 2;
-
-  // In the air, the pushbox is offset upwards from the origin.
-  int left, top, right, bottom;
-  entity.get_pushbox(&left, &top, &right, &bottom);
-
-//  Output::send<LogLevel::Verbose>(STR("top: {}, bottom: {}\n"), r_throwbox_top, r_throwbox_bottom);
-//  Output::send<LogLevel::Verbose>(STR("Airborne: {}\n"), entity.airborne);
-
-
-  /*
-  box.y = (float)(entity.throw_box_bottom + top - entity.pos_y);
-  box.h = (float)(entity.throw_box_top - entity.throw_box_bottom );
-  */
-//  box.y = (float)(entity.throw_box_bottom + top - bottom - entity.ply_PushColHeightLowAir);
-//  box.h = (float)(entity.throw_box_top - entity.throw_box_bottom - top + bottom);
-//  box.y = (float)(r_throwbox_bottom + top - bottom - entity.ply_PushColHeightLowAir);
-//  box.h = (float)(r_throwbox_top - r_throwbox_bottom - top + bottom);
-
-  box.y = (float) (r_throwbox_bottom- entity.ply_PushColHeightLowAir);
-  box.h = (float) (r_throwbox_top-r_throwbox_bottom);
-
-  // box.h = 90000;
   return box;
 }
 
 void draw_hitboxes(const DrawTool &tool, const asw_entity &entity, bool active) {
   const auto count = entity.hitbox_count + entity.hurtbox_count;
-
-  // assuming that
-  // entity.hitboxes = [hurtbox1, hurtbox2, ???]
-
-//  std::uintptr_t address = reinterpret_cast<std::uintptr_t>(&entity);
-//  Output::send<LogLevel::Verbose>(STR("Entity: {}\n"), address);
-//  Output::send<LogLevel::Verbose>(STR("Active: {}\n"), active);
-//  Output::send<LogLevel::Verbose>(STR("Hitbox Count: {}\n"), entity.hitbox_count);
-//  Output::send<LogLevel::Verbose>(STR("Hurtbox Count: {}\n"), entity.hurtbox_count);
 
   std::vector<DrawnHitbox> hitboxes;
   // Collect hitbox info
@@ -395,7 +376,7 @@ void draw_hitboxes(const DrawTool &tool, const asw_entity &entity, bool active) 
 
     // hacky afro hurtbox
     // Jank way of finding the last hitbox (since entity.hitboxes isn't actually an array i don't think???)
-    // for all hitboxes: -1000 < x,y < 1000 and w,y = 0
+    // for all hitboxes: -1000 < x,y < 1000 and w,h != 0
     // honestly idk what's loaded next in the memory after the hitboxes array
     if (player.afro && !player.is_strike_invuln()) {
       for (int i = 1; i < 6; i++) {
@@ -403,13 +384,11 @@ void draw_hitboxes(const DrawTool &tool, const asw_entity &entity, bool active) 
             entity.hitboxes[count + i].x > 1000 || entity.hitboxes[count + i].y > 1000 ||
             entity.hitboxes[count + i].w != 0 || entity.hitboxes[count + i].h != 0) {
 
-//          Output::send<LogLevel::Verbose>(STR("Offset: {}\n"), i - 1);
-//          Output::send<LogLevel::Verbose>(STR("Afro Hitbox: x {} y {} w {} h {}\n"), entity.hitboxes[count + i - 1].x, entity.hitboxes[count + i - 1].y, entity.hitboxes[count + i - 1].w, entity.hitboxes[count + i - 1].h);
-//          Output::send<LogLevel::Verbose>(STR("Afro Hitbox +1: x {} y {} w {} h {}\n"), entity.hitboxes[count + i].x, entity.hitboxes[count + i].y, entity.hitboxes[count + i].w, entity.hitboxes[count + i].h);
           hitboxes.push_back(calc_afro_box(player, count + i - 1));
           break;
         }
       }
+
     }
 
     // Add throw hitbox if in use

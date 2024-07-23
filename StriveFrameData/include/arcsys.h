@@ -129,6 +129,12 @@ public:
 	void camera_transform(SimpleFVector *position, SimpleFVector *angle) const;
 };
 
+// lower left corner is where things are drawn
+//  ^+
+//  |   +
+//  o___>
+// like normal coordinate plane
+// 0, 0 is center of collision box at the bottom
 class hitbox {
 public:
 	enum class box_type : int {
@@ -151,10 +157,10 @@ class event_handler {
 	char pad[0x58];
 
 public:
-	FIELD(0x0, char*, script);
+    FIELD(0x0, char*, script);
     FIELD(0x8, char*, action_name);
-	FIELD(0x28, int, trigger_value);
-	FIELD(0x2C, int, trigger_value_2);
+    FIELD(0x28, int, trigger_value);
+    FIELD(0x2C, int, trigger_value_2);
     FIELD(0x30, char*, label);
     FIELD(0x50, unsigned int, int_flag);
 };
@@ -303,8 +309,10 @@ public:
     FIELD(0x4D0, int, gravity);
     FIELD(0x4FC, int, pushbox_front_offset);
     FIELD(0x6F8, atk_param, atk_param_hit);
-    FIELD(0x73C, int, throw_box_top);
-    FIELD(0x744, int, throw_box_bottom);
+    FIELD(0x738, int, activation_range_x_max);
+    FIELD(0x73C, int, activation_range_y_max);
+    FIELD(0x740, int, activation_range_x_min);
+    FIELD(0x744, int, activation_range_y_min);
     FIELD(0x748, int, throw_range);
     FIELD(0xAFC, atk_param_ex, atk_param_ex_normal);
     FIELD(0xBA0, atk_param_ex, atk_param_ex_counter);
@@ -578,7 +586,8 @@ public:
     FIELD(0x614c, int, attack_flag); // original: 0x5F90 -> fixed: 0x60EC (+0x060)
     FIELD(0x6160, int, blockstun); // original: 0x60A0 + 0x060 = 0x6100
     FIELD(0x9928, int, hitstun); // original: 0x9868 + 0x060 = 0x98C8
-    FIELD(0x999c, int, ply_PushColHeightLowAir);
+    FIELD(0x99f8, int, pushboxYUpperAir);
+    FIELD(0x99fc, int, pushboxYLowerAir);
     FIELD(0xc32c, ID_CMNACT, cur_cmn_action_id); // original: 0xC26C + 0x060 = 0xC2CC
     FIELD(0xd05c, int, slowdown_timer); // original: 0xCF9C + 0x060 = 0xCFFC
     FIELD(0xfac0, MoveDataCollection, move_datas);
@@ -603,6 +612,7 @@ public:
     bool is_jump_recovery() const;
     bool is_stance_idle() const;
     bool is_fdash() const;
+    bool is_move(std::string_view moveId) const;
 
     MoveData* get_current_move() const;
 
