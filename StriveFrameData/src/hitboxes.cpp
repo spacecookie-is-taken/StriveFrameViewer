@@ -220,9 +220,10 @@ void transform_hitbox_point(const DrawTool &tool, const asw_entity &entity, FVec
       pos.x *= -1.f;
     TOO_MUCH_DEBUG(STR("--flipped: {},{}\n"), pos.x, pos.y);
   } else if (entity.opponent != nullptr) {
-    // Throws hit on either side, so show it directed towards opponent
-//    if (entity.get_pos_x() > entity.opponent->get_pos_x())
-//      pos.x *= -1.f;
+    // Throw direction is based off of your facing direction
+    if (entity.facing == direction::left)
+      pos.x *= -1.f;
+
     TOO_MUCH_DEBUG(STR("--throw. flipped: {},{}\n"), pos.x, pos.y);
   }
 
@@ -416,7 +417,7 @@ void draw_hitboxes(const DrawTool &tool, const asw_entity &entity, bool active) 
   }
 }
 
-void draw_rect(
+void draw_rect_no_outline(
     const DrawTool &tool,
     const std::array<FVector2D, 4> &corners,
     const FLinearColor &color) {
@@ -425,12 +426,15 @@ void draw_rect(
   auto width = corners[2].x - left;
   auto height = corners[2].y - top;
 
-  TOO_MUCH_DEBUG(
-      STR("    Drawn: L:{}, W:{}, T:{}, H:{}\n"),
-      left, width,
-      top, height);
-
   tool.drawRect(left, top, width, height, color);
+}
+
+void draw_rect(
+    const DrawTool &tool,
+    const std::array<FVector2D, 4> &corners,
+    const FLinearColor &color) {
+
+  draw_rect_no_outline(tool, corners, color);
   for (auto i = 0; i < 4; i++) {
     tool.drawLine(corners[i], corners[(i + 1) % 4], color, 2.F);
   }
@@ -463,14 +467,18 @@ void draw_pushbox(const DrawTool &tool, const asw_entity &entity) {
       corners[2].x, corners[2].y,
       corners[3].x, corners[3].y);
 
-  // Show hollow pushbox when throw invuln
+  // Show hollow pushbox when throw invuln or can't interact
   FLinearColor color;
-  if (entity.is_throw_invuln())
+  if (entity.is_throw_invuln() || !entity.is_pushbox_active())
     color = FLinearColor{1.f, 1.f, 0.f, 0.f};
   else
     color = FLinearColor{1.f, 1.f, 0.f, .2f};
 
-  draw_rect(tool, corners, color);
+  // Show outlined pushbox when pushbox doesn't have intangibility
+  if (entity.is_pushbox_active() || !entity.is_throw_invuln())
+    draw_rect(tool, corners, color);
+//  else
+//    draw_rect_no_outline(tool, corners, color);
 }
 
 void drawAllBoxes() {
@@ -482,8 +490,7 @@ void drawAllBoxes() {
   for (auto entidx = engine->entity_count - 1; entidx >= 0; entidx--) {
     const auto &entity = *engine->entities[entidx];
 
-    if (entity.is_pushbox_active())
-      draw_pushbox(tool, entity);
+    draw_pushbox(tool, entity);
 
     const auto active = entity.is_active();
     draw_hitboxes(tool, entity, active);
