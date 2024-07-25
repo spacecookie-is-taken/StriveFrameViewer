@@ -100,7 +100,7 @@ namespace Settings {
         "show_dash",
         0};
   SettingsEntry PAUSE_TYPE = SettingsEntry{
-      OptionData{L"Pause Type: ", 2, {L"<   Default   >", L"<  Cinematic  >"}},
+      OptionData{L"Pause Type: ", 2, {L"<   Default   >", L"<     WIP     >"}},
       "pause_type",
       0};
 
