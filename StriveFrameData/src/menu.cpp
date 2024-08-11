@@ -1,6 +1,6 @@
 #include "menu.h"
-#include <string>
 #include <fstream>
+#include <string>
 
 class RedInputChecker {
   unsigned short novel_inputs;
@@ -96,23 +96,28 @@ namespace Settings {
       "color_scheme",
       1};
   SettingsEntry SHOW_DASH_FRAMES = SettingsEntry{
-    OptionData{L"Show Dash Frames:", 2, {L"< Disabled   >", L"< Enabled    >"}},
-        "show_dash",
-        0};
+      OptionData{L"Show Dash Frames:", 2, {L"< Disabled   >", L"< Enabled    >"}},
+      "show_dash",
+      0};
   SettingsEntry PAUSE_TYPE = SettingsEntry{
       OptionData{L"Pause Type: ", 2, {L"<   Default   >", L"<     WIP     >"}},
       "pause_type",
       0};
+  SettingsEntry DELAY_AMOUNT = SettingsEntry{
+      OptionData{L"Delay Frames: ", 4, {L"<     0ms     >", L"<     20ms    >", L"<     30ms    >", L"<     60ms    >"}},
+      "delay_amount",
+      0};
 
-  std::array<SettingsEntry*, 7> settings = {
+  std::array<SettingsEntry *, 8> settings = {
       &FRAMEBAR,
       &HITBOXES,
       &FADE,
       &DELIM,
-//      &SHOW_CANCEL,
+      //      &SHOW_CANCEL,
       &COLOR_SCHEME,
       &SHOW_DASH_FRAMES,
       &PAUSE_TYPE,
+      &DELAY_AMOUNT,
   };
 
   const std::filesystem::path WORKING_DIRECTORY = UE4SSProgram::get_program().get_working_directory();
@@ -150,13 +155,13 @@ namespace Settings {
       try {
         val = std::stoi(line.substr(pos + 1));
       } catch (...) {
-//        RC::Output::send<LogLevel::Verbose>(STR("Could not find {}\n"), line);
+        //        RC::Output::send<LogLevel::Verbose>(STR("Could not find {}\n"), line);
         continue;
       }
 
       int index = indexById(key);
       if (index == -1) {
-//        RC::Output::send<LogLevel::Verbose>(STR("Could not find {}\n"), line);
+        //        RC::Output::send<LogLevel::Verbose>(STR("Could not find {}\n"), line);
         continue;
       }
 
@@ -235,7 +240,7 @@ namespace {
                   convSRGB(1, 182, 149, 255),  // Busy
                   convSRGB(205, 43, 103, 255), // Attacking
                   convSRGB(1, 111, 188, 255),  // Projectile
-                  convSRGB(1, 111, 188, 255),   // Recovering
+                  convSRGB(1, 111, 188, 255),  // Recovering
                   convSRGB(26, 26, 26, 255),   // Forward Dash
               }},
       Palette{// CLASSIC
@@ -248,7 +253,7 @@ namespace {
                   FLinearColor{.7f, .7f, .1f, .9f}, // Busy
                   FLinearColor{.8f, .1f, .1f, .9f}, // Attacking
                   FLinearColor{.8f, .4f, .1f, .9f}, // Projectile
-                  FLinearColor{.8f, .4f, .1f, .9f},  // Recovering
+                  FLinearColor{.8f, .4f, .1f, .9f}, // Recovering
                   FLinearColor{.2f, .2f, .2f, .9f}, // Forward Dash
               }},
       Palette{// DUSTLOOP
@@ -261,7 +266,7 @@ namespace {
                   convSRGB(54, 179, 126, 255),  // Busy
                   convSRGB(255, 93, 93, 255),   // Attacking
                   convSRGB(0, 105, 182, 255),   // Projectile
-                  convSRGB(0, 105, 182, 255),    // Recovering
+                  convSRGB(0, 105, 182, 255),   // Recovering
                   convSRGB(128, 128, 128, 255), // Forward Dash
               }},
       Palette{// COLORBLIND
@@ -274,7 +279,7 @@ namespace {
                   FLinearColor{.7f, .7f, .1f, .9f}, // Busy
                   FLinearColor{.8f, .1f, .1f, .9f}, // Attacking
                   FLinearColor{.8f, .4f, .1f, .9f}, // Projectile
-                  FLinearColor{.8f, .4f, .1f, .9f},  // Recovering
+                  FLinearColor{.8f, .4f, .1f, .9f}, // Recovering
                   FLinearColor{.2f, .2f, .2f, .9f}, // Forward Dash
               }},
   };
@@ -293,7 +298,7 @@ size_t rotateVal(size_t val, bool positive, size_t max) {
 // TODO later: maybe move this somewhere else?
 // TODO later: maybe instead of idx do SettingsEntry entry
 void ModMenu::changeSetting(size_t idx, bool right) {
-  auto& setting = Settings::settings[idx];
+  auto &setting = Settings::settings[idx];
   setting->value = rotateVal(setting->value, right, setting->display.count);
 
   Settings::saveConfig();
@@ -351,6 +356,9 @@ bool ModMenu::delimEnabled() const { return Settings::DELIM.value; }
 bool ModMenu::cancelEnabled() const { return Settings::SHOW_CANCEL.value; }
 bool ModMenu::dashEnabled() const { return Settings::SHOW_DASH_FRAMES.value; }
 int ModMenu::pauseType() const { return Settings::PAUSE_TYPE.value; }
+
+const int delayAmounts [4] = {0, 20, 30, 60};
+int ModMenu::delayAmount() const { return delayAmounts[Settings::DELAY_AMOUNT.value]; }
 
 CurrentOptions ModMenu::getScheme() const {
   return CurrentOptions{color_palettes[Settings::COLOR_SCHEME.value], fadeEnabled(), delimEnabled(), cancelEnabled()};

@@ -7,6 +7,9 @@
 #include "hitboxes.h"
 #include "menu.h"
 #include "sigscan.h"
+#include <thread>
+#include <chrono>
+using namespace std::chrono_literals;
 
 #include <DynamicOutput/DynamicOutput.hpp>
 #include <Mod/CppUserModBase.hpp>
@@ -297,6 +300,8 @@ void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
     orig_UpdateBattle(GameState, DeltaTime);
     return;
   }
+
+  std::this_thread::sleep_for(std::chrono::milliseconds (ModMenu::instance().delayAmount()));
 
   input_checker.pause();
   if (ModMenu::instance().pauseType() == 0 && input_checker.advancing()) return;
