@@ -1,15 +1,20 @@
 # Strive Frame Viewer
 
-This is a fork of Ryn's Advantage viewer mod that allows you to see a SF6 style frame data display in training mode (and only training mode). You can view the mod at https://gamebanana.com/mods/483661.
+This is a fork of Procdox's Framebar viewer mod that allows you to see a SF6 style frame data display in training/replay mode (and only training/replay mode). There is no gamebanan link right now
 
 ![image info](./docs/readme_banner.png)
 
-## Installation
-Download the Frame Viewer zip file from releases, and extract the contents into the win64 directory of GGST. If you are upgrading, delete the existing "cache" folder as it can cause issues if it is out of date.
+## Manual Installation
+Download the `Standalone.zip` file from releases, and extract the contents into the win64 directory of GGST. If you are upgrading, delete the existing "cache" folder as it can cause issues if it is out of date.
 
 e.g. ```C:\Program Files (x86)\Steam\steamapps\common\GUILTY GEAR STRIVE\RED\Binaries\Win64```
 
 This does not require any pak mods installed via unverum.
+
+## Unverum Installation
+Download the [Unverum Hotpatch](https://github.com/Sevoii/Unverum/releases/tag/latest) and replace `Unverum.exe` and `Unverum.dll` (of your old installtion) to the new one. Then download the `Unverum.zip` file from releases, and extract contents into Guilty Gear -Strive- directory of Unverum (manual download since no gamebana link yet). Finally, run the game like how you would with Unverum normally.
+
+This requires my hotfix version of Unverum.
 
 ## The view explained
 Two bars along the bottom of the screen display a series of frames. The top bar corresponds to player one, the bottom bar to player two. The color of these frames indicates different states that the respective player is in.
@@ -33,17 +38,14 @@ Additionally, there are some space saving features. If a segment of frames is lo
 - F5: Open mod menu
 
 ## TODO:
-- Display hitboxes
 - Fix Leo backstance move lengths
 - Add data about largest gap for each player
-- Save options between game sessions
 - Some command throws don't show active frames
 - RWA and BWA aren't counting for frames
 - Add POT armor frame visualizer
 - Add cancellable recovery frame visualizer
 - Add color key to menu
 - Add segment break indicator
-
 
 ## Disabling
 The simplest way to disable this and any other ue4ss mods is to delete or remove the ```dwmapi.dll``` file from the game files. If this file is not present, the rest of the mod will not be loaded when the game is launched.
