@@ -588,16 +588,16 @@ public:
     FIELD(0x6240, int, blockstun); // original: 0x60A0 + 0x060 = 0x6100
     FIELD(0x9A08, int, hitstun); // original: 0x9868 + 0x060 = 0x98C8
 
-    FIELD(0x99f8, int, pushboxYUpperAir);
-    FIELD(0x99fc, int, pushboxYLowerAir);
+    FIELD(0x9ad8, int, pushboxYUpperAir);
+    FIELD(0x9adc, int, pushboxYLowerAir);
 
     FIELD(0xc40c, ID_CMNACT, cur_cmn_action_id); // original: 0xC26C + 0x060 = 0xC2CC
     FIELD(0xd13c, int, slowdown_timer); // original: 0xCF9C + 0x060 = 0xCFFC
     FIELD(0xfba0, MoveDataCollection, move_datas);
 
-    FIELD(0xf950, int, afro); // m_IsAfro Header: 0xed28, Offset: 0x508
-	  FIELD(0xf988, int, afroW);
-	  FIELD(0xf98c , int, afroH);
+    FIELD(0xf638, int, afro); // m_IsAfro Header: 0xed28, Offset: 0x508
+	  FIELD(0xf670, int, afroW);
+	  FIELD(0xf674 , int, afroH);
 
     int calc_advantage();
     bool is_in_hitstun() const;
