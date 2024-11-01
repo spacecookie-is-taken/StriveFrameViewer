@@ -20,9 +20,9 @@ public:
 
 class AREDGameState_Battle : public AGameState {
 public:
-  FIELD(0xBB0, class asw_engine*, Engine);
-	FIELD(0xBB8, class asw_scene*, Scene);
-  FIELD(0xBD0, class asw_events*, Events);
+  FIELD(0xBB8, class asw_engine*, Engine);
+	FIELD(0xBC0, class asw_scene*, Scene);
+  FIELD(0xBD8, class asw_events*, Events);
 };
 
 class player_block {
@@ -309,28 +309,29 @@ public:
     FIELD(0x4D0, int, gravity);
     FIELD(0x4FC, int, pushbox_front_offset);
     FIELD(0x6F8, atk_param, atk_param_hit);
-    FIELD(0x738, int, activation_range_x_max);
-    FIELD(0x73C, int, activation_range_y_max);
-    FIELD(0x740, int, activation_range_x_min);
-    FIELD(0x744, int, activation_range_y_min);
-    FIELD(0x748, int, throw_range);
-    FIELD(0xAFC, atk_param_ex, atk_param_ex_normal);
-    FIELD(0xBA0, atk_param_ex, atk_param_ex_counter);
-    FIELD(0xC78, atk_param, atk_param_defend);
-    FIELD(0x1070, atk_param_ex, atk_param_ex_defend);
-    FIELD(0x1168, int, backdash_invuln);
+    FIELD(0x790, int, activation_range_x_max);
+    FIELD(0x794, int, activation_range_y_max);
+    FIELD(0x798, int, activation_range_x_min);
+    FIELD(0x79C, int, activation_range_y_min);
+    FIELD(0x7A0, int, throw_range);
+    FIELD(0xAFC, atk_param_ex, atk_param_ex_normal); // Outdated?
+    FIELD(0xBA0, atk_param_ex, atk_param_ex_counter); // Outdated?
+    FIELD(0xC78, atk_param, atk_param_defend); // Outdated?
+    FIELD(0x1070, atk_param_ex, atk_param_ex_defend); // Outdated?
+    FIELD(0x11CC, int, backdash_invuln);
     // bbscript
-    FIELD(0x11E0, bbscript::event_bitmask, event_handler_bitmask);
-    FIELD(0x1220, char*, bbs_file);
-    FIELD(0x1228, char*, script_base);
-    FIELD(0x1230, char*, next_script_cmd);
-    FIELD(0x1238, char*, first_script_cmd);
-    ARRAY_FIELD(0x1240, char[32], sprite_name);
-    FIELD(0x1260, int, sprite_duration);
-    FIELD(0x1268, int, sprite_total_duration);
-    FIELD(0x134C, int, sprite_changes);
-    ARRAY_FIELD(0x1358, event_handler[(size_t)bbscript::event_type::MAX], event_handlers);
-    ARRAY_FIELD(0x3740, char[20], state_name); // m_CurActionName (old: 0x3628, 0x118 offset)
+    FIELD(0x1240, bbscript::event_bitmask, event_handler_bitmask);
+    FIELD(0x1280, char*, bbs_file);
+    FIELD(0x1288, char*, script_base);
+    FIELD(0x1290, char*, next_script_cmd);
+    FIELD(0x1298, char*, first_script_cmd);
+
+    ARRAY_FIELD(0x12a0, char[32], sprite_name);
+    FIELD(0x12c0, int, sprite_duration);
+    FIELD(0x12c8, int, sprite_total_duration);
+//    FIELD(0x3740, int, sprite_changes);
+//    ARRAY_FIELD(0x13bc, event_handler[(size_t)bbscript::event_type::MAX], event_handlers);
+//    ARRAY_FIELD(0x37a4, char[20], state_name); // m_CurActionName (old: 0x3628, 0x118 offset)
 
     // m_ActionRequestInfo, Ghidra: 0x3674, 0x118 offset?)
     // Ghidra + 0x118 = 0x378C (from state_name)
@@ -582,18 +583,21 @@ enum PLATTACK_FLAG
 class asw_player : public asw_entity {
 
 public:
-    FIELD(0x6140, int, enable_flag); // original: 0x6080 -> fixed: 0x60E0 (+0x060)
-    FIELD(0x614c, int, attack_flag); // original: 0x5F90 -> fixed: 0x60EC (+0x060)
-    FIELD(0x6160, int, blockstun); // original: 0x60A0 + 0x060 = 0x6100
-    FIELD(0x9928, int, hitstun); // original: 0x9868 + 0x060 = 0x98C8
+    FIELD(0x6220, int, enable_flag); // original: 0x6080 -> fixed: 0x60E0 (+0x060)
+    FIELD(0x622C, int, attack_flag); // original: 0x5F90 -> fixed: 0x60EC (+0x060)
+    FIELD(0x6240, int, blockstun); // original: 0x60A0 + 0x060 = 0x6100
+    FIELD(0x9A08, int, hitstun); // original: 0x9868 + 0x060 = 0x98C8
+
     FIELD(0x99f8, int, pushboxYUpperAir);
     FIELD(0x99fc, int, pushboxYLowerAir);
-    FIELD(0xc32c, ID_CMNACT, cur_cmn_action_id); // original: 0xC26C + 0x060 = 0xC2CC
-    FIELD(0xd05c, int, slowdown_timer); // original: 0xCF9C + 0x060 = 0xCFFC
-    FIELD(0xfac0, MoveDataCollection, move_datas);
-    FIELD(0xF548, int, afro); // m_IsAfro Header: 0xed28, Offset: 0x508
-	  FIELD(0xF580, int, afroW);
-	  FIELD(0xF584 , int, afroH);
+
+    FIELD(0xc40c, ID_CMNACT, cur_cmn_action_id); // original: 0xC26C + 0x060 = 0xC2CC
+    FIELD(0xd13c, int, slowdown_timer); // original: 0xCF9C + 0x060 = 0xCFFC
+    FIELD(0xfba0, MoveDataCollection, move_datas);
+
+    FIELD(0xf950, int, afro); // m_IsAfro Header: 0xed28, Offset: 0x508
+	  FIELD(0xf988, int, afroW);
+	  FIELD(0xf98c , int, afroH);
 
     int calc_advantage();
     bool is_in_hitstun() const;

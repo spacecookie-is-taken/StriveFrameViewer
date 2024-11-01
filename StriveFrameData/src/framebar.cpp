@@ -396,42 +396,41 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last, bool combo
     type = PST_Dash;
   }
 
-  can_cancel = (type == PST_Recovering || type == PST_Busy) && hasCancelOptions(player);
+//  can_cancel = (type == PST_Recovering || type == PST_Busy) && hasCancelOptions(player);
 
-  // active stall prevents the first active frame (before the hit is registered) from appearing active
-  // this helps match Dustloop and looks more intuitive
+//   active stall prevents the first active frame (before the hit is registered) from appearing active
+//   this helps match Dustloop and looks more intuitive
   if (player_active || projectile_active) {
     active_stall = true;
   }
 
-  // state_time is used for determining how long was spent in each PST state for a single BB state script
-  // type != PST_Busy to prevent interuptible post move animations (that are idle equivalent) or chained stuns from breaking segments
-  
+//   state_time is used for determining how long was spent in each PST state for a single BB state script
+//   type != PST_Busy to prevent interuptible post move animations (that are idle equivalent) or chained stuns from breaking segments
   if ((same_script || type != PST_Busy) && last.type == type) {
     state_time = (last.state_time < 1000) ? last.state_time + 1 : last.state_time;
-    bool cancel_break = ModMenu::instance().cancelEnabled() && last.can_cancel != can_cancel; 
+    bool cancel_break = ModMenu::instance().cancelEnabled() && last.can_cancel != can_cancel;
     trunc_time = cancel_break ? 1 : last.trunc_time + 1;
   } else {
     state_time = 1;
     trunc_time = 1;
   }
 
-  if constexpr (ENABLE_STATE_DEBUG) {
-    auto format = STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, plact:{}, pjact:{}, any:{}, st:{}, cin:{}, hbc:{}, trw:{}, f:{}, c:{}, atk: {}\n");
-    std::wstring local_script = convertToWide(player.get_BB_state());
-    std::wstring local_sprite = convertToWide(player.get_sprite_name());
-    auto nca = normal_canact ? L"Y" : L"N";
-    auto sca = stance_canact ? L"Y" : L"N";
-    auto bs = block_stunned ? L"Y" : L"N";
-    auto hs = hit_stunned ? L"Y" : L"N";
-    auto pla = player_active ? L"Y" : L"N";
-    auto pja = projectile_active ? L"Y" : L"N";
-    auto aja = any_prjt ? L"Y" : L"N";
-    auto cin = player.cinematic_counter ? L"Y" : L"N";
-    auto flex = player.can_whiff_cancel() ? L"Y" : L"N";
-    auto cancel = player.can_gatling_cancel()  ? L"Y" : L"N";
-    RC::Output::send<LogLevel::Warning>(format, local_script, time, local_sprite, nca, sca, bs, hs, pla, pja, aja, state_time, cin, player.hitbox_count, player.throw_range, flex, cancel, player.attack_flag);
-  }
+//  if constexpr (ENABLE_STATE_DEBUG) {
+//    auto format = STR("script:{}, time:{}, sprite:{}, can:{}, stance:{} bstun:{}, hstun:{}, plact:{}, pjact:{}, any:{}, st:{}, cin:{}, hbc:{}, trw:{}, f:{}, c:{}, atk: {}\n");
+//    std::wstring local_script = convertToWide(player.get_BB_state());
+//    std::wstring local_sprite = convertToWide(player.get_sprite_name());
+//    auto nca = normal_canact ? L"Y" : L"N";
+//    auto sca = stance_canact ? L"Y" : L"N";
+//    auto bs = block_stunned ? L"Y" : L"N";
+//    auto hs = hit_stunned ? L"Y" : L"N";
+//    auto pla = player_active ? L"Y" : L"N";
+//    auto pja = projectile_active ? L"Y" : L"N";
+//    auto aja = any_prjt ? L"Y" : L"N";
+//    auto cin = player.cinematic_counter ? L"Y" : L"N";
+//    auto flex = player.can_whiff_cancel() ? L"Y" : L"N";
+//    auto cancel = player.can_gatling_cancel()  ? L"Y" : L"N";
+//    RC::Output::send<LogLevel::Warning>(format, local_script, time, local_sprite, nca, sca, bs, hs, pla, pja, aja, state_time, cin, player.hitbox_count, player.throw_range, flex, cancel, player.attack_flag);
+//  }
 }
 
 // ############################################################
