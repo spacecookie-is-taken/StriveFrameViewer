@@ -263,6 +263,7 @@ void PlayerData::resetFrames() {
   current_state.state_time = 1;
   previous_state.state_time = 1;
   working_stats = MoveStats();
+  displayed_stats = MoveStats();
   for (int idx = 0; idx < FRAME_SEGMENTS; ++idx)
     segments[idx] = FrameInfo();
 }
@@ -471,6 +472,7 @@ void FrameBar::Data::drawFrame(const CurrentOptions& scheme, const FrameInfo &in
 void FrameBar::Data::resetFrames() {
   current_segment_idx = 0;
   doBoth(&PlayerData::resetFrames);
+  advantage = 0;
 }
 
 void FrameBar::Data::addFrame() {
