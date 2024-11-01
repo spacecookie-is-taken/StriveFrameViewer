@@ -373,20 +373,20 @@ bool asw_player::is_stance_idle() const {
   if (!player_state_raw) return false;
   std::string_view player_state(player_state_raw);
 
-//  // Check for Leo stance idles
-//  if (player_state == "Semuke" || player_state == "SemukeFWalk" || player_state == "SemukeBWalk") {
-//    return true;
-//  }
-//  // Check for HC stance idles
-//  if (player_state == "Sniper") {
-//    std::string_view player_sprite(get_sprite_name(),32);
-//    if(player_sprite.size() < 8) return false;
-//    std::string_view sprite_stub = player_sprite.substr(0, 7);
-//    bool busy = false;
-//    busy |= (sprite_stub == "cos410_" && player_sprite.substr(0, 9) != "cos410_06"); // Startup animation
-//    busy |= (sprite_stub == "cos425_" || sprite_stub == "cos412_" || sprite_stub == "cos426_" || sprite_stub == "cos424_"); // Shooting animations
-//    return !busy;
-//  }
+  // Check for Leo stance idles
+  if (player_state == "Semuke" || player_state == "SemukeFWalk" || player_state == "SemukeBWalk") {
+    return true;
+  }
+  // Check for HC stance idles
+  if (player_state == "Sniper") {
+    std::string_view player_sprite(get_sprite_name(),32);
+    if(player_sprite.size() < 8) return false;
+    std::string_view sprite_stub = player_sprite.substr(0, 7);
+    bool busy = false;
+    busy |= (sprite_stub == "cos410_" && player_sprite.substr(0, 9) != "cos410_06"); // Startup animation
+    busy |= (sprite_stub == "cos425_" || sprite_stub == "cos412_" || sprite_stub == "cos426_" || sprite_stub == "cos424_"); // Shooting animations
+    return !busy;
+  }
   return false;
 }
 
