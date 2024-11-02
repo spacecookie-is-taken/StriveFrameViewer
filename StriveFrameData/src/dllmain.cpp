@@ -185,6 +185,13 @@ public:
     return false;
   }
 
+  void resetButton(int input) {
+    int index = getButtonIndex(input);
+    if (index != -1) {
+      buttonStates[index] = false;
+    }
+  }
+
   void resetButtons() {
     for (int i = 0; i < BUTTON_COUNT; i++) {
       buttonStates[i] = false;
@@ -196,44 +203,54 @@ public:
       BindWatcherI::addToFilter(buttons[i]);
     }
   }
+
+  void checkBinds(bool await = false) {
+    auto inputs = BindWatcherI::getInputs(await);
+    for (const auto &input : inputs) {
+      setButtonState(input, true);
+    }
+  }
 private:
   bool buttonStates[BUTTON_COUNT] = {};
 } keybindings;
 
-class AsyncInputChecker {
+class PauseManager {
   bool isPaused = false;
   bool shouldAdvance = false;
 
-  void checkBinds(bool await = false) {
-    auto inputs = BindWatcherI::getInputs(await);
-    keybindings.resetButtons();
-    for (const auto &input : inputs) {
-      keybindings.setButtonState(input, true);
-    }
+public:
+  bool advancing() const {
+    return isPaused && shouldAdvance;
+  }
 
+  bool cinematicShouldAdvance() {
+    return isPaused && !shouldAdvance;
+  }
+
+  void updateBinds() {
     if (keybindings.getButtonState(keybindings.PAUSE_BUTTON)) {
-      isPaused = true;
+      keybindings.resetButton(keybindings.PAUSE_BUTTON);
+      isPaused = !isPaused;
     }
 
     if (keybindings.getButtonState(keybindings.ADVANCE_BUTTON)) {
+      keybindings.resetButton(keybindings.ADVANCE_BUTTON);
       shouldAdvance = true;
     }
   }
 
-public:
-  bool advancing() const { return isPaused && shouldAdvance; }
-
-  void pause() {
+  void checkPause() {
     if (advancing()) {
       shouldAdvance = false;
       return;
     }
 
-    checkBinds();
+    updateBinds();
 
     if (ModMenu::instance().pauseType() == 0) {
       while (isPaused && !shouldAdvance) {
-        checkBinds(true);
+        keybindings.checkBinds(true);
+        updateBinds();
       }
     }
   }
@@ -242,11 +259,7 @@ public:
     isPaused = false;
     shouldAdvance = false;
   }
-
-  bool cinematicShouldAdvance() {
-    return isPaused && !shouldAdvance;
-  }
-} input_checker;
+} pause_manager;
 
 class UeTracker {
   Unreal::UObject *worldsets_actor = nullptr;
@@ -308,7 +321,7 @@ FrameBar the_bar;
 void hook_MatchStart(AREDGameState_Battle *GameState) {
   game_state.matchStarted = true;
   game_state.roundActive = false;
-  input_checker.reset();
+  pause_manager.reset();
   tracker.reset();
 
   orig_MatchStart(GameState);
@@ -326,7 +339,7 @@ void hook_AHUDPostRender(void *hud) {
     if(menu.barEnabled()) the_bar.draw();
   }
 
-  if (input_checker.advancing()) return;
+  if (pause_manager.advancing()) return;
   orig_AHUDPostRender(hud);
 }
 void hook_ACamUpdateCamera(void *cam, float DeltaTime) {
@@ -335,7 +348,7 @@ void hook_ACamUpdateCamera(void *cam, float DeltaTime) {
     return;
   }
 
-  if (input_checker.advancing()) return;
+  if (pause_manager.advancing()) return;
   orig_ACamUpdateCamera(cam, DeltaTime);
 }
 void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
@@ -346,9 +359,11 @@ void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
 
   std::this_thread::sleep_for(std::chrono::milliseconds (ModMenu::instance().delayAmount()));
 
-  input_checker.pause();
-  if (ModMenu::instance().pauseType() == 0 && input_checker.advancing()) return;
-  if (ModMenu::instance().pauseType() == 1 && input_checker.cinematicShouldAdvance()) return;
+  keybindings.checkBinds(false);
+  pause_manager.checkPause();
+
+  if (ModMenu::instance().pauseType() == 0 && pause_manager.advancing()) return;
+  if (ModMenu::instance().pauseType() == 1 && pause_manager.cinematicShouldAdvance()) return;
 
   ModMenu::instance().update(PressedKeys{
       keybindings.getButtonState(keybindings.TOGGLE_FRAMEBAR_BUTTON),
@@ -359,6 +374,7 @@ void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
       keybindings.getButtonState(keybindings.MENU_RIGHT_BUTTON),
       keybindings.getButtonState(keybindings.MENU_LEFT_BUTTON)
   });
+  keybindings.resetButtons();
 
   game_state.checkRound();
   if (game_state.resetting) {
