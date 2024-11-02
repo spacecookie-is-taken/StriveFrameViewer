@@ -15,6 +15,17 @@ struct CurrentOptions {
   bool show_cancels;
 };
 
+struct PressedKeys {
+  bool toggle_framebar;
+  bool toggle_hitbox;
+  bool toggle_menu;
+  bool go_up;
+  bool go_down;
+  bool rotate_right;
+  bool rotate_left;
+};
+
+
 class ModMenu {
   DrawContext tool;
 
@@ -30,7 +41,7 @@ public:
   ~ModMenu();
   static ModMenu& instance();
 
-  void update(bool framebar_pressed, bool hitbox_pressed, bool menu_pressed);
+  void update(PressedKeys data);
   void draw();
 
   bool barEnabled() const;

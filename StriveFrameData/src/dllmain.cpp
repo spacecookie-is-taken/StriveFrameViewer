@@ -141,11 +141,64 @@ public:
 
 } game_state;
 
-constexpr int TOGGLE_FRAMEBAR_BUTTON = VK_F1;
-constexpr int TOGGLE_HITBOX_BUTTON = VK_F2;
-constexpr int PAUSE_BUTTON = VK_F3;
-constexpr int ADVANCE_BUTTON = VK_F4;
-constexpr int TOGGLE_MENU_BUTTON = VK_F5;
+class Keybinds {
+public:
+  static const int BUTTON_COUNT = 9;
+
+  int TOGGLE_FRAMEBAR_BUTTON = VK_F1;
+  int TOGGLE_HITBOX_BUTTON = VK_F2;
+  int PAUSE_BUTTON = VK_F3;
+  int ADVANCE_BUTTON = VK_F4;
+  int TOGGLE_MENU_BUTTON = VK_F5;
+
+  int MENU_UP_BUTTON = VK_UP;
+  int MENU_DOWN_BUTTON = VK_DOWN;
+  int MENU_LEFT_BUTTON = VK_LEFT;
+  int MENU_RIGHT_BUTTON = VK_RIGHT;
+
+  int buttons[BUTTON_COUNT] = {TOGGLE_FRAMEBAR_BUTTON, TOGGLE_HITBOX_BUTTON, PAUSE_BUTTON, ADVANCE_BUTTON, TOGGLE_MENU_BUTTON, MENU_UP_BUTTON, MENU_DOWN_BUTTON, MENU_LEFT_BUTTON, MENU_RIGHT_BUTTON};
+
+  int getButtonIndex(int input) {
+    for (int i = 0; i < BUTTON_COUNT; i++) {
+      if (buttons[i] == input) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  bool setButtonState(int input, bool val) {
+    int index = getButtonIndex(input);
+    if (index != -1) {
+      buttonStates[index] = val;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  bool getButtonState(int input) {
+    int index = getButtonIndex(input);
+    if (index != -1) {
+      return buttonStates[index];
+    }
+    return false;
+  }
+
+  void resetButtons() {
+    for (int i = 0; i < BUTTON_COUNT; i++) {
+      buttonStates[i] = false;
+    }
+  }
+
+  void loadButtons() {
+    for (int i = 0; i < BUTTON_COUNT; i++) {
+      BindWatcherI::addToFilter(buttons[i]);
+    }
+  }
+private:
+  bool buttonStates[BUTTON_COUNT] = {};
+} keybindings;
 
 class AsyncInputChecker {
   bool isPaused = false;
@@ -153,36 +206,29 @@ class AsyncInputChecker {
 
   void checkBinds(bool await = false) {
     auto inputs = BindWatcherI::getInputs(await);
+    keybindings.resetButtons();
     for (const auto &input : inputs) {
-      switch (input){
-        case TOGGLE_FRAMEBAR_BUTTON:
-          framebar_pressed = true;
-          break;
-        case TOGGLE_HITBOX_BUTTON:
-          hitbox_pressed = true;
-          break;
-        case PAUSE_BUTTON:
-          isPaused = !isPaused;
-          break;
-        case ADVANCE_BUTTON:
-          shouldAdvance = true;
-          break;
-        case TOGGLE_MENU_BUTTON:
-          menu_pressed = true;
-          break;
-        default:
-          break;
-      }
+      keybindings.setButtonState(input, true);
+    }
+
+    if (keybindings.getButtonState(keybindings.PAUSE_BUTTON)) {
+      isPaused = true;
+    }
+
+    if (keybindings.getButtonState(keybindings.ADVANCE_BUTTON)) {
+      shouldAdvance = true;
     }
   }
 
 public:
   bool advancing() const { return isPaused && shouldAdvance; }
+
   void pause() {
     if (advancing()) {
       shouldAdvance = false;
       return;
     }
+
     checkBinds();
 
     if (ModMenu::instance().pauseType() == 0) {
@@ -191,6 +237,7 @@ public:
       }
     }
   }
+
   void reset() {
     isPaused = false;
     shouldAdvance = false;
@@ -199,10 +246,6 @@ public:
   bool cinematicShouldAdvance() {
     return isPaused && !shouldAdvance;
   }
-
-  bool framebar_pressed = false;
-  bool hitbox_pressed = false;
-  bool menu_pressed = false;
 } input_checker;
 
 class UeTracker {
@@ -307,10 +350,15 @@ void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
   if (ModMenu::instance().pauseType() == 0 && input_checker.advancing()) return;
   if (ModMenu::instance().pauseType() == 1 && input_checker.cinematicShouldAdvance()) return;
 
-  ModMenu::instance().update(input_checker.framebar_pressed, input_checker.hitbox_pressed, input_checker.menu_pressed);
-  input_checker.framebar_pressed = false;
-  input_checker.hitbox_pressed = false;
-  input_checker.menu_pressed = false;
+  ModMenu::instance().update(PressedKeys{
+      keybindings.getButtonState(keybindings.TOGGLE_FRAMEBAR_BUTTON),
+      keybindings.getButtonState(keybindings.TOGGLE_HITBOX_BUTTON),
+      keybindings.getButtonState(keybindings.TOGGLE_MENU_BUTTON),
+      keybindings.getButtonState(keybindings.MENU_UP_BUTTON),
+      keybindings.getButtonState(keybindings.MENU_DOWN_BUTTON),
+      keybindings.getButtonState(keybindings.MENU_RIGHT_BUTTON),
+      keybindings.getButtonState(keybindings.MENU_LEFT_BUTTON)
+  });
 
   game_state.checkRound();
   if (game_state.resetting) {
@@ -371,12 +419,7 @@ public:
 
     ASWInitFunctions();
     bbscript::BBSInitializeFunctions();
-
-    BindWatcherI::addToFilter(TOGGLE_FRAMEBAR_BUTTON);
-    BindWatcherI::addToFilter(TOGGLE_HITBOX_BUTTON);
-    BindWatcherI::addToFilter(PAUSE_BUTTON);
-    BindWatcherI::addToFilter(ADVANCE_BUTTON);
-    BindWatcherI::addToFilter(TOGGLE_MENU_BUTTON);
+    keybindings.loadButtons();
   }
 };
 
