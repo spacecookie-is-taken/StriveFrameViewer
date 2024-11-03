@@ -72,31 +72,31 @@ struct SettingsEntry {
 namespace Settings {
   SettingsEntry FRAMEBAR = SettingsEntry{
       OptionData{
-          L"Frame Bar:", 2, {L"< Disabled   >", L"< Enabled    >"}},
+          L"Frame Bar:", 2, {L"<  Disabled  >", L"<  Enabled   >"}},
       "framebar",
       1};
   SettingsEntry HITBOXES = SettingsEntry{
-      OptionData{L"Hitboxes:", 2, {L"< Disabled   >", L"< Enabled    >"}},
+      OptionData{L"Hitboxes:", 2, {L"<  Disabled  >", L"<  Enabled   >"}},
       "hitboxes",
       0};
   SettingsEntry FADE = SettingsEntry{
-      OptionData{L"Fade Effect:", 2, {L"< Disabled   >", L"< Enabled    >"}},
+      OptionData{L"Fade Effect:", 2, {L"<  Disabled  >", L"<  Enabled   >"}},
       "fade",
       1};
   SettingsEntry DELIM = SettingsEntry{
-      OptionData{L"Delim Segments:", 2, {L"< Disabled   >", L"< Enabled    >"}},
+      OptionData{L"Delim Segments:", 2, {L"<  Disabled  >", L"<  Enabled   >"}},
       "delim",
       0};
   SettingsEntry SHOW_CANCEL = SettingsEntry{
-      OptionData{L"Show Cancel Window:", 2, {L"< Disabled   >", L"< Enabled    >"}},
+      OptionData{L"Show Cancel Window:", 2, {L"<  Disabled  >", L"<  Enabled   >"}},
       "show_cancel",
       0};
   SettingsEntry COLOR_SCHEME = SettingsEntry{
-      OptionData{L"Color Scheme:", 4, {L"< SF6        >", L"< Classic    >", L"< Dustloop   >", L"< Colorblind >"}},
+      OptionData{L"Color Scheme:", 4, {L"<    SF6     >", L"<  Classic   >", L"<  Dustloop  >", L"< Colorblind >"}},
       "color_scheme",
       1};
   SettingsEntry SHOW_DASH_FRAMES = SettingsEntry{
-      OptionData{L"Show Dash Frames:", 2, {L"< Disabled   >", L"< Enabled    >"}},
+      OptionData{L"Show Dash:", 2, {L"<  Disabled  >", L"<  Enabled   >"}},
       "show_dash",
       0};
   SettingsEntry PAUSE_TYPE = SettingsEntry{
@@ -108,7 +108,7 @@ namespace Settings {
       "delay_amount",
       0};
   SettingsEntry CROSSUP_ENABABLED = SettingsEntry{
-      OptionData{L"Show Crossup: ", 2, {L"< Disabled   >", L"< Enabled    >"}},
+      OptionData{L"Show Crossup: ", 2, {L"<  Disabled  >", L"<  Enabled   >"}},
       "crossup_enabled",
       0
   };
