@@ -107,8 +107,13 @@ namespace Settings {
       OptionData{L"Delay Frames: ", 4, {L"<     0ms     >", L"<     20ms    >", L"<     30ms    >", L"<     60ms    >"}},
       "delay_amount",
       0};
+  SettingsEntry CROSSUP_ENABABLED = SettingsEntry{
+      OptionData{L"Show Crossup: ", 2, {L"< Disabled   >", L"< Enabled    >"}},
+      "crossup_enabled",
+      0
+  };
 
-  std::array<SettingsEntry *, 8> settings = {
+  std::array<SettingsEntry *, 9> settings = {
       &FRAMEBAR,
       &HITBOXES,
       &FADE,
@@ -118,6 +123,7 @@ namespace Settings {
       &SHOW_DASH_FRAMES,
       &PAUSE_TYPE,
       &DELAY_AMOUNT,
+      &CROSSUP_ENABABLED,
   };
 
   const std::filesystem::path WORKING_DIRECTORY = UE4SSProgram::get_program().get_working_directory();
@@ -359,11 +365,12 @@ bool ModMenu::fadeEnabled() const { return Settings::FADE.value; }
 bool ModMenu::delimEnabled() const { return Settings::DELIM.value; }
 bool ModMenu::cancelEnabled() const { return Settings::SHOW_CANCEL.value; }
 bool ModMenu::dashEnabled() const { return Settings::SHOW_DASH_FRAMES.value; }
+bool ModMenu::crossupEnabled() const { return Settings::CROSSUP_ENABABLED.value; }
 int ModMenu::pauseType() const { return Settings::PAUSE_TYPE.value; }
 
 const int delayAmounts [4] = {0, 20, 30, 60};
 int ModMenu::delayAmount() const { return delayAmounts[Settings::DELAY_AMOUNT.value]; }
 
 CurrentOptions ModMenu::getScheme() const {
-  return CurrentOptions{color_palettes[Settings::COLOR_SCHEME.value], fadeEnabled(), delimEnabled(), cancelEnabled()};
+  return CurrentOptions{color_palettes[Settings::COLOR_SCHEME.value], fadeEnabled(), delimEnabled(), cancelEnabled(), crossupEnabled()};
 }

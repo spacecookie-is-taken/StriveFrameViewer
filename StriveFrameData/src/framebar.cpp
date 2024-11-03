@@ -51,6 +51,7 @@ namespace {
   /* Unreal Constants */
   FLinearColor color_invisible{1.f, 1.f, 1.f, 0.f};
   FLinearColor color_white{1.f, 1.f, 1.f, 1.f};
+  FLinearColor color_red{1.f, 0.f, 0.f, 1.f};
   FLinearColor color_black{0.f, 0.f, 0.f, 1.f};
 }
 
@@ -319,8 +320,13 @@ void PlayerData::updateSegment(int prev_idx, int curr_idx) {
     // active_segment.color_one = state_colors[type_one] * COLOR_DECAY;
     active.decay = previous.decay * COLOR_DECAY;
   }
+
   if(current_state.anyProjectiles()){
     active.mods |= MT_Projectile;
+  }
+
+  if (previous_state.show_crossup && !(previous_state.side_state == 0 || current_state.side_state == 0) && ((previous_state.side_state < 0) != (current_state.side_state < 0))) {
+    previous.mods |= MT_CrossUp;
   }
 }
 
@@ -349,8 +355,21 @@ void PlayerData::fadeSegment(int fade_idx) {
 // ############################################################
 // PlayerState
 
-PlayerState::PlayerState(asw_player &player, const PlayerState &last, bool combo_active) {
+PlayerState::PlayerState(asw_player &player, asw_player &opp, const PlayerState &last, bool combo_active, bool show_cu) {
   time = player.action_time;
+  show_crossup = show_cu;
+
+  if (player.pos_x < opp.pos_x) {
+    side_state = -2;
+  } else if (player.pos_x > opp.pos_x) {
+    side_state = 2;
+  } else if (last.side_state == -2) {
+    side_state = -1;
+  } else if (last.side_state == 2) {
+    side_state = 1;
+  } else {
+    side_state = last.side_state;
+  }
 
   // assumes a sprite won't come out on this frame, this is false
   const bool same_script = time > 1;
@@ -407,7 +426,8 @@ PlayerState::PlayerState(asw_player &player, const PlayerState &last, bool combo
 
 //   state_time is used for determining how long was spent in each PST state for a single BB state script
 //   type != PST_Busy to prevent interuptible post move animations (that are idle equivalent) or chained stuns from breaking segments
-  if ((same_script || type != PST_Busy) && last.type == type) {
+//   make sure not to trunc sideswap stuff
+  if ((same_script || type != PST_Busy) && last.type == type && (((side_state < 0) == (last.side_state < 0)) || !show_cu)) {
     state_time = (last.state_time < 1000) ? last.state_time + 1 : last.state_time;
     bool cancel_break = ModMenu::instance().cancelEnabled() && last.can_cancel != can_cancel;
     trunc_time = cancel_break ? 1 : last.trunc_time + 1;
@@ -461,6 +481,10 @@ void FrameBar::Data::drawFrame(const CurrentOptions& scheme, const FrameInfo &in
       tool.drawRect(left, top + SEG_HEIGHT - CANCEL_HEIGHT, SEG_WIDTH, CANCEL_HEIGHT, color_white);
     }
 
+    if (scheme.show_crossups && info.mods & MT_CrossUp) {
+        tool.drawRect(left + SEG_WIDTH - BORDER_THICKNESS, top - BORDER_THICKNESS, 2 * BORDER_THICKNESS, SEG_HEIGHT + 2 * BORDER_THICKNESS, color_red);
+    }
+
     if (info.trunc > 0) {
       auto text = std::to_wstring(info.trunc);
       int text_left = left - (text.size() - 1) * 17 + 2;
@@ -491,9 +515,10 @@ void FrameBar::Data::addFrame() {
   }
 
   // crate updated states
+  auto scheme = ModMenu::instance().getScheme();
   std::pair<PlayerState, PlayerState> next = {
-      PlayerState(p_one, data.first.current_state, combo_active),
-      PlayerState(p_two, data.second.current_state, combo_active)};
+      PlayerState(p_one, p_two, data.first.current_state, combo_active, scheme.show_crossups),
+      PlayerState(p_two, p_one, data.second.current_state, combo_active, scheme.show_crossups)};
 
   if (p_one.cinematic_counter || p_two.cinematic_counter) {
     if constexpr (ENABLE_STATE_DEBUG) {

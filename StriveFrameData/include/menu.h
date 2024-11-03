@@ -13,6 +13,7 @@ struct CurrentOptions {
   bool show_fade;
   bool show_delim;
   bool show_cancels;
+  bool show_crossups;
 };
 
 struct PressedKeys {
@@ -52,6 +53,7 @@ public:
   bool dashEnabled() const;
   int pauseType() const;
   int delayAmount() const;
+  bool crossupEnabled() const;
 
   CurrentOptions getScheme() const;
 };

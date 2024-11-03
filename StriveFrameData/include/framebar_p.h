@@ -26,7 +26,8 @@ enum ModifierType {
   MT_None = 0x0,
   MT_Cancellable = 0x1,
   MT_Projectile = 0x2,
-  MT_SegmentEnd = 0x4
+  MT_SegmentEnd = 0x4,
+  MT_CrossUp = 0x8
 };
 inline ModifierType operator|(ModifierType a, ModifierType b) { return (ModifierType)((int)a | (int)b);}
 inline ModifierType operator&(ModifierType a, ModifierType b) { return (ModifierType)((int)a & (int)b);}
@@ -73,9 +74,16 @@ public:
   int trunc_time = 0;
   bool active_stall = true;
   bool can_cancel = false;
+  bool show_crossup = false;
+
+  // -2 means our x < other x
+  // -1 means our x = other x but we just came from -2
+  // 1 means our x = other x but we just came from 2
+  // 2 means our x > other x
+  int side_state = 0;
 
   PlayerState() = default;
-  PlayerState(asw_player &player, const PlayerState &last, bool combo_active);
+  PlayerState(asw_player &curr_player, asw_player &opp_player, const PlayerState &last, bool combo_active, bool show_crossup);
 
   bool isStunned() const { return type == PST_HitStunned || type == PST_BlockStunned; }
   bool anyProjectiles() const { return (type == PST_ProjectileAttacking) || any_prjt; }
