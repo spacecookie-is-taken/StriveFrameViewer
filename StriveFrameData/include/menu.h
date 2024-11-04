@@ -5,7 +5,7 @@
 struct Palette {
   FLinearColor projectile_color;
   FLinearColor background_color;
-  FLinearColor state_colors[8];
+  FLinearColor state_colors[9];
 };
 
 struct CurrentOptions {

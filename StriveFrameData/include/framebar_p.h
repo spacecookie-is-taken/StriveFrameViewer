@@ -13,6 +13,7 @@ enum PlayerStateType {
   PST_Idle = 0,
   PST_BlockStunned,
   PST_HitStunned,
+  PST_Knockdown,
   PST_Busy,
   PST_Attacking,
   PST_ProjectileAttacking,
@@ -124,6 +125,7 @@ struct FrameBar::Data {
   int current_segment_idx = 0;
   bool tracking_advantage = false;
   int advantage = 0;
+  int linkFrames = 0;
   std::pair<PlayerData, PlayerData> data;
 
   /*template <class RetT, std::enable_if<!std::is_void_v<RetT>>, class... ArgT>

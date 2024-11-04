@@ -243,6 +243,7 @@ namespace {
                   convSRGB(26, 26, 26, 255),   // IDLE
                   convSRGB(253, 177, 46, 255), // Block
                   convSRGB(253, 245, 46, 255), // Hit
+                  convSRGB(253, 245, 46, 255), // Knockdown
                   convSRGB(1, 182, 149, 255),  // Busy
                   convSRGB(205, 43, 103, 255), // Attacking
                   convSRGB(1, 111, 188, 255),  // Projectile
@@ -256,6 +257,7 @@ namespace {
                   FLinearColor{.2f, .2f, .2f, .9f}, // IDLE
                   FLinearColor{.1f, .1f, .8f, .9f}, // Block
                   FLinearColor{.1f, .6f, .1f, .9f}, // Hit
+                  FLinearColor{.1f, .6f, .1f, .9f}, // Knockdown
                   FLinearColor{.7f, .7f, .1f, .9f}, // Busy
                   FLinearColor{.8f, .1f, .1f, .9f}, // Attacking
                   FLinearColor{.8f, .4f, .1f, .9f}, // Projectile
@@ -269,6 +271,7 @@ namespace {
                   convSRGB(128, 128, 128, 255), // IDLE
                   convSRGB(233, 172, 4, 255),   // Block
                   convSRGB(233, 215, 4, 255),   // Hit
+                  convSRGB(233, 215, 4, 255),   // Knockdown
                   convSRGB(54, 179, 126, 255),  // Busy
                   convSRGB(255, 93, 93, 255),   // Attacking
                   convSRGB(0, 105, 182, 255),   // Projectile
@@ -282,6 +285,7 @@ namespace {
                   FLinearColor{.2f, .2f, .2f, .9f}, // IDLE
                   FLinearColor{.1f, .1f, .8f, .9f}, // Block
                   FLinearColor{.1f, .6f, .1f, .9f}, // Hit
+                  FLinearColor{.1f, .6f, .1f, .9f}, // Knockdown
                   FLinearColor{.7f, .7f, .1f, .9f}, // Busy
                   FLinearColor{.8f, .1f, .1f, .9f}, // Attacking
                   FLinearColor{.8f, .4f, .1f, .9f}, // Projectile

@@ -67,7 +67,7 @@ std::wstring convertToWide(const std::string_view &str) {
   return wstrTo;
 }
 
-std::wstring makeStatsText(const MoveStats &stats, int advantage) {
+std::wstring makeStatsText(const MoveStats &stats, int advantage, int linkFrames) {
   std::wstringstream builder;
   builder << L"Startup: " << stats.startup << ", Active: ";
   for (int idx = 0; idx < stats.actives.size() - 1; ++idx) {
@@ -76,6 +76,10 @@ std::wstring makeStatsText(const MoveStats &stats, int advantage) {
   }
   auto &last = stats.actives.back();
   builder << last.first << ", Recovery: " << last.second << L", Advantage: " << advantage;
+
+  if (linkFrames > 0 && advantage > 0) {
+    builder << ", Links to " << linkFrames << "f startup";
+  }
   return builder.str();
 }
 
@@ -400,8 +404,10 @@ PlayerState::PlayerState(asw_player &player, asw_player &opp, const PlayerState 
     type = PST_Idle;
   else if (block_stunned)
     type = PST_BlockStunned;
-  else if (hit_stunned || knockdown)
+  else if (hit_stunned)
     type = PST_HitStunned;
+  else if (knockdown)   
+    type = PST_Knockdown;
   else if (player_active && last.active_stall)
     type = PST_Attacking;
   else if (projectile_active && last.active_stall)
@@ -497,6 +503,7 @@ void FrameBar::Data::resetFrames() {
   current_segment_idx = 0;
   doBoth(&PlayerData::resetFrames);
   advantage = 0;
+  linkFrames = 0;
 }
 
 void FrameBar::Data::addFrame() {
@@ -571,6 +578,7 @@ void FrameBar::Data::addFrame() {
   if (!tracking_advantage) {
     if (data.first.current_state.isStunned() || data.second.current_state.isStunned()) {
       advantage = 0;
+      linkFrames= 0;
       tracking_advantage = true;
     }
   } else {
@@ -578,11 +586,15 @@ void FrameBar::Data::addFrame() {
       if (data.second.current_state.type == PST_Idle) {
         tracking_advantage = false;
       } else {
+        if (data.second.current_state.type == PST_HitStunned) {
+          ++linkFrames;
+        }
         ++advantage;
       }
     } else {
       if (data.second.current_state.type == PST_Idle) {
         --advantage;
+        linkFrames = 0;
       } else {
         advantage = 0;
       }
@@ -633,8 +645,8 @@ void FrameBar::Data::draw() {
   auto options = menu.getScheme();
   bool fade = menu.fadeEnabled();
 
-  auto player_one_info = makeStatsText(data.first.displayed_stats, advantage);
-  auto player_two_info = makeStatsText(data.second.displayed_stats, -advantage);
+  auto player_one_info = makeStatsText(data.first.displayed_stats, advantage, linkFrames);
+  auto player_two_info = makeStatsText(data.second.displayed_stats, -advantage, linkFrames);
 
   tool.drawOutlinedText(BAR_LEFT, INFO_ONE_LOC, Unreal::FString(player_one_info.c_str()), BAR_TEXT_SIZE);
   tool.drawOutlinedText(BAR_LEFT, INFO_TWO_LOC, Unreal::FString(player_two_info.c_str()), BAR_TEXT_SIZE);
