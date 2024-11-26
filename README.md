@@ -39,7 +39,7 @@ Additionally, there are some space saving features. If a segment of frames is lo
 - F3: Pause/Resume the game
 - F4: Advance the game by one frame (if paused)
 - F5: Open mod menu
-- - Use arrow keys to navigate the mod menu
+    - Use arrow keys to navigate the mod menu
 
 ## TODO:
 - Fix Leo backstance move lengths
