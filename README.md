@@ -1,3 +1,6 @@
+# Important Note
+I am busy with school right now so I will not be able to update the viewer in the near future. I am still here so if anyone wants to make a PR I can accept it. 
+
 # Strive Frame Viewer
 
 This is a fork of Procdox's Framebar viewer mod that allows you to see a SF6 style frame data display in training/replay mode (and only training/replay mode). There is no gamebanan link right now
@@ -36,6 +39,7 @@ Additionally, there are some space saving features. If a segment of frames is lo
 - F3: Pause/Resume the game
 - F4: Advance the game by one frame (if paused)
 - F5: Open mod menu
+- - Use arrow keys to navigate the mod menu
 
 ## TODO:
 - Fix Leo backstance move lengths
