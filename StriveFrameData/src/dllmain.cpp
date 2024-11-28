@@ -7,8 +7,8 @@
 #include "hitboxes.h"
 #include "menu.h"
 #include "sigscan.h"
-#include <thread>
 #include <chrono>
+#include <thread>
 using namespace std::chrono_literals;
 
 #include <DynamicOutput/DynamicOutput.hpp>
@@ -109,11 +109,10 @@ public:
     }
     if (!GameCommon) return false;
     if (int current_mode = orig_GetGameMode(GameCommon); current_mode != last_mode) {
-//       RC::Output::send<LogLevel::Warning>(STR("Mode Change: {}\n"), current_mode);
+      //       RC::Output::send<LogLevel::Warning>(STR("Mode Change: {}\n"), current_mode);
       last_mode = current_mode;
       in_allowed_mode = (std::find(allowed_modes.begin(), allowed_modes.end(), current_mode) != allowed_modes.end());
     }
-    
     return in_allowed_mode;
   }
   void checkRound() {
@@ -210,6 +209,7 @@ public:
       setButtonState(input, true);
     }
   }
+
 private:
   bool buttonStates[BUTTON_COUNT] = {};
 } keybindings;
@@ -333,10 +333,10 @@ void hook_AHUDPostRender(void *hud) {
   }
 
   if (DrawTool::instance().update(hud)) {
-    auto& menu = ModMenu::instance();
+    auto &menu = ModMenu::instance();
     menu.draw();
-    if(menu.hitboxEnabled()) drawAllBoxes();
-    if(menu.barEnabled()) the_bar.draw();
+    if (menu.hitboxEnabled()) drawAllBoxes();
+    if (menu.barEnabled()) the_bar.draw();
   }
 
   if (pause_manager.advancing()) return;
@@ -357,7 +357,7 @@ void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
     return;
   }
 
-  std::this_thread::sleep_for(std::chrono::milliseconds (ModMenu::instance().delayAmount()));
+  std::this_thread::sleep_for(std::chrono::milliseconds(ModMenu::instance().delayAmount()));
 
   keybindings.checkBinds(false);
   pause_manager.checkPause();
@@ -372,8 +372,7 @@ void hook_UpdateBattle(AREDGameState_Battle *GameState, float DeltaTime) {
       keybindings.getButtonState(keybindings.MENU_UP_BUTTON),
       keybindings.getButtonState(keybindings.MENU_DOWN_BUTTON),
       keybindings.getButtonState(keybindings.MENU_RIGHT_BUTTON),
-      keybindings.getButtonState(keybindings.MENU_LEFT_BUTTON)
-  });
+      keybindings.getButtonState(keybindings.MENU_LEFT_BUTTON)});
   keybindings.resetButtons();
 
   game_state.checkRound();
@@ -426,7 +425,8 @@ public:
     UpdateBattle_Detour = new PLH::x64Detour(UpdateBattle_Addr, reinterpret_cast<uint64_t>(&hook_UpdateBattle), reinterpret_cast<uint64_t *>(&orig_UpdateBattle));
     UpdateBattle_Detour->hook();
 
-    const uint64_t MatchStart_Addr = sigscan::get().scan("\x44\x39\x68\x08\x74\x00\x48\x8B\x18\xEB\x00\x48\x8B\xDF", "xxxxx?xxxx?xxx") - 0x8D;
+    // https://github.com/TheLettuceClub/StriveSAMMI/blob/7292cc225bd4de2b389e92b227c1b2793609c4e1/GGSTSammi/src/dllmain.cpp#L435
+    const uint64_t MatchStart_Addr = sigscan::get().scan("\x48\x89\x5c\x24\x10\x55\x56\x57\x41\x54\x41\x55\x41\x56\x41\x57\x48\x8d\x6c\x24\xf0\x48\x81\xec\x10\x01\x00\x00\x0f\x29\xb4\x24", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
     MatchStart_Detour = new PLH::x64Detour(MatchStart_Addr, reinterpret_cast<uint64_t>(&hook_MatchStart), reinterpret_cast<uint64_t *>(&orig_MatchStart));
     MatchStart_Detour->hook();
 
@@ -434,7 +434,7 @@ public:
     orig_GetGameMode = reinterpret_cast<funcGetGameMode_t>(GetGameMode_Addr);
 
     ASWInitFunctions();
-    bbscript::BBSInitializeFunctions();
+    //    bbscript::BBSInitializeFunctions();
     keybindings.loadButtons();
   }
 };
