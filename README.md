@@ -1,8 +1,3 @@
-# Important Note
-I am busy with school right now so I will not be able to update the viewer in the near future. I am still here so if anyone wants to make a PR I can accept it. 
-
-Updated version: https://github.com/WistfulHopes/UE4SSMods/releases/tag/frame-3on3
-
 # Strive Frame Viewer
 
 This is a fork of Procdox's Framebar viewer mod that allows you to see a SF6 style frame data display in training/replay mode (and only training/replay mode). There is no gamebanan link right now
@@ -30,6 +25,7 @@ Two bars along the bottom of the screen display a series of frames. The top bar 
 - <span style="color:red">Red</span>: the player has active hurtboxes
 - <span style="color:orange">Orange</span>: the player is in a recovery animation
 - <span style="color:red">Red Outline</span>: the player has a projectile with active hurtboxes
+- <span style="color:red">Vertical Red Bar</span>: the player just side switched with the opponent (crossup protection will still apply)
 
 If the training mode reset is triggered or both players don't input a move for 20 frames, the combo is considered "ended" and the display will reset on the next input move.
 
