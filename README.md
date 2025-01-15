@@ -25,6 +25,7 @@ Two bars along the bottom of the screen display a series of frames. The top bar 
 - <span style="color:red">Red</span>: the player has active hurtboxes
 - <span style="color:orange">Orange</span>: the player is in a recovery animation
 - <span style="color:red">Red Outline</span>: the player has a projectile with active hurtboxes
+- <span style="color:red">Vertical Red Bar</span>: the player just side switched with the opponent (crossup protection will still apply)
 
 If the training mode reset is triggered or both players don't input a move for 20 frames, the combo is considered "ended" and the display will reset on the next input move.
 
@@ -36,6 +37,7 @@ Additionally, there are some space saving features. If a segment of frames is lo
 - F3: Pause/Resume the game
 - F4: Advance the game by one frame (if paused)
 - F5: Open mod menu
+    - Use arrow keys to navigate the mod menu
 
 ## TODO:
 - Fix Leo backstance move lengths
